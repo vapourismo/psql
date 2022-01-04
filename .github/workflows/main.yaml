@@ -1,0 +1,119 @@
+name: Haskell Integration
+
+on:
+  push:
+    branches:
+      - master
+      - feature/*
+
+    tags:
+      - "v*"
+
+  pull_request:
+    branches:
+      - master
+
+  schedule:
+    - cron: "0 17 * * *"
+
+jobs:
+  BuildAndTest:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ghc:
+          - "9.2.1"
+          - "9.0.1"
+          - "8.10.7"
+          - "8.8.4"
+        may-fail:
+          - false
+        include:
+          - ghc: latest
+            may-fail: true
+    continue-on-error: ${{ matrix.may-fail }}
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cabal/packages
+            ~/.cabal/store
+            dist-newstyle
+          key: ${{ runner.os }}-${{ matrix.ghc }}
+
+      - uses: haskell/actions/setup@v1.2
+        with:
+          ghc-version: ${{ matrix.ghc }}
+
+      - run: cabal configure --disable-documentation --enable-tests --disable-optimization
+
+      - run: cabal build --dependencies-only all
+
+      - run: cabal build all
+
+      - run: cabal test all
+
+  HLint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cabal/packages
+            ~/.cabal/store
+            dist-newstyle
+          key: ${{ runner.os }}-hlint
+
+      - uses: haskell/actions/setup@v1.2
+        with:
+          ghc-version: "8.10.7"
+
+      - name: Install HLint
+        run: cabal install --installdir=. hlint --constraint 'hlint >= 3.3'
+
+      - name: Run HLint
+        run: ./hlint .
+
+  UploadCandidate:
+    runs-on: ubuntu-latest
+    environment: hackage
+    if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
+    needs:
+      - BuildAndTest
+      - HLint
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: haskell/actions/setup@v1.2
+
+      - run: |
+          git grep -nE '@since\s+[^0-9\.]+' && (echo Found unspecified versions!; exit 1) || true
+
+      - id: sdist
+        run: |
+          cabal sdist -o .
+
+          version_with_tags=$(echo '${{ github.ref_name }}' | sed -r 's/^v(.*)/\1/')
+          version=$(echo '${{ github.ref_name }}' | sed -r 's/^v([0-9\.]+)(-.*)?/\1/')
+          source_file=./psql-$version.tar.gz
+          test -r $source_file
+
+          echo "::set-output name=version::$version"
+          echo "::set-output name=version_with_tags::$version_with_tags"
+          echo "::set-output name=source_file::$source_file"
+
+      - run: |
+          cabal upload \
+            -u ${{ secrets.HACKAGE_USER }} \
+            -p ${{ secrets.HACKAGE_PASSWORD }} \
+            ${{ steps.sdist.outputs.source_file }}
+
+      - uses: softprops/action-gh-release@v1
+        if: steps.sdist.outputs.version_with_tags == steps.sdist.outputs.version
+        with:
+          files: ${{ steps.sdist.outputs.source_file }}
