@@ -4,3 +4,8 @@ source-repository-package
   type: git
   location: https://github.com/ekmett/semigroupoids.git
   tag: 95abba5e1f4e4fbf13b32e67fe3dbb3977f65511
+
+source-repository-package
+  type: git
+  location: https://github.com/vapourismo/simpoole.git
+  tag: 605db44cd8cabc92d91aa91446511d9deee6e857
