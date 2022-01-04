@@ -2,10 +2,5 @@ packages: *.cabal
 
 source-repository-package
   type: git
-  location: https://github.com/vapourismo/simpoole.git
-  tag: cd67d3dc0e6c6073cc7db13869ccdec3e821357e
-
-source-repository-package
-  type: git
   location: https://github.com/ekmett/semigroupoids.git
   tag: 95abba5e1f4e4fbf13b32e67fe3dbb3977f65511

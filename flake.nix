@@ -4,9 +4,17 @@
   inputs = {
     nixpkgs.url = github:NixOS/nixpkgs;
     flake-utils.url = github:numtide/flake-utils;
+    simpoole = {
+      url = github:vapourismo/simpoole;
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    semigroupoids-src = {
+      url = github:ekmett/semigroupoids;
+      flake = false;
+    };
   };
 
-  outputs = { self, nixpkgs, flake-utils }: {
+  outputs = { self, nixpkgs, flake-utils, simpoole, semigroupoids-src }: {
     overlay = final: prev: {
       haskell = prev.haskell // {
         packageOverrides =
@@ -36,7 +44,7 @@
   } // flake-utils.lib.eachDefaultSystem (system:
     with (import nixpkgs {
       inherit system;
-      overlays = [ self.overlay ];
+      overlays = [ simpoole.overlay self.overlay ];
     });
 
     {
