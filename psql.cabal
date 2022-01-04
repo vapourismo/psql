@@ -58,6 +58,17 @@ test-suite psql-tests
   default-language: Haskell2010
   ghc-options:      -threaded -with-rtsopts=-N
   build-depends:    base,
-                    psql
+                    bytestring,
+                    cgroup-rts-threads,
+                    exceptions,
+                    hspec,
+                    mtl,
+                    postgresql-libpq,
+                    psql,
+                    semigroupoids,
+                    sop-core,
+                    unordered-containers,
+                    vector
   hs-source-dirs:   test
   main-is:          Main.hs
+  other-modules:    PostgreSQL.ResultSpec
