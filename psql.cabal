@@ -33,8 +33,7 @@ library
                     postgresql-libpq,
                     -- FIXME: semigroupoids version needed is not on Hackage yet
                     semigroupoids,
-                    -- FIXME: simpoole version needed is not on Hackage yet
-                    simpoole >= 0.3.0,
+                    simpoole >= 0.4.0,
                     template-haskell,
                     text,
                     vector
