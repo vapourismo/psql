@@ -266,22 +266,7 @@ tplQuoteExp contents = do
 --
 -- Produces a 'Template'.
 --
--- > [tpl| SELECT $param * 2 |]
---
--- Use @$$@ to render a single @$@.
---
--- == Parameters
---
--- Use @$param@ or @${param}@ to reference a query parameter.
---
--- @[tpl| ${x} |]@ is equivalent to @param x@.
---
--- == Substitutions
---
--- Use @$(substr)@ to embed another 'Template' where @substr :: Template a@.
---
--- @[tpl| $(x) |]@ is equivalent to @x@.
---
+-- See 'stmt' for features.
 --
 tpl :: Quote.QuasiQuoter
 tpl = Quote.QuasiQuoter
@@ -300,7 +285,26 @@ stmtQuoteExp contents = do
       contents
   [e| renderTemplate $stmt |]
 
--- | Similar to 'tpl' but produces a 'Statement' instead.
+-- | Statement quasi-quoter
+--
+-- Produces a 'Statement'.
+--
+-- > [stmt| SELECT $param * 2 |]
+--
+-- Use @$$@ to render a single @$@.
+--
+-- == Parameters
+--
+-- Use @$param@ or @${param}@ to reference a query parameter.
+--
+-- @[stmt| ${x} |]@ is equivalent to @'param' x@.
+--
+-- == Substitutions
+--
+-- Use @$(substr)@ to embed another 'Template' where @substr :: 'Template' a@.
+--
+-- @[stmt| $(x) |]@ is equivalent to @x@.
+--
 stmt :: Quote.QuasiQuoter
 stmt = Quote.QuasiQuoter
   { Quote.quoteExp = stmtQuoteExp
