@@ -14,7 +14,7 @@ build-type:         Simple
 
 source-repository head
   type:     git
-  location: git://github.com/vapourismo/PostgreSQLgit
+  location: git://github.com/vapourismo/psql.git
 
 common warnings
   ghc-options: -Wall -Wextra -Wno-name-shadowing -Wredundant-constraints
