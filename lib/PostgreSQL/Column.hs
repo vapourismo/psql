@@ -84,6 +84,8 @@ validateParser (Parser run) f = Parser $ \oid fmt -> do
   parser <- run oid fmt
   pure (Cell.validateParser parser f)
 
+{-# INLINE validateParser #-}
+
 -- | Parse anything using its 'Read' instance. Only supports textual format and rejects @NULL@
 -- values.
 readableParser :: Read a => Parser a
@@ -95,9 +97,13 @@ readableParser = onlyTextualParser $ unchecked Cell.readableParser
 ignoringParser :: Parser ()
 ignoringParser = unchecked Cell.ignoringParser
 
+{-# INLINE ignoringParser #-}
+
 -- | Parse as UTF-8 'Text'.
 textParser :: Parser Text
 textParser = onlyTextualParser $ unchecked Cell.textParser
+
+{-# INLINE textParser #-}
 
 -- | Can parse a column in the 'PQ.Result'
 class ColumnResult a where
@@ -106,38 +112,60 @@ class ColumnResult a where
 instance ColumnResult () where
   columnParser = ignoringParser
 
+  {-# INLINE columnParser #-}
+
 instance ColumnResult Int where
   columnParser = readableParser
+
+  {-# INLINE columnParser #-}
 
 instance ColumnResult Word where
   columnParser = readableParser
 
+  {-# INLINE columnParser #-}
+
 instance ColumnResult Integer where
   columnParser = readableParser
+
+  {-# INLINE columnParser #-}
 
 instance ColumnResult Natural where
   columnParser = readableParser
 
+  {-# INLINE columnParser #-}
+
 instance ColumnResult Float where
   columnParser = readableParser
+
+  {-# INLINE columnParser #-}
 
 instance ColumnResult Double where
   columnParser = readableParser
 
+  {-# INLINE columnParser #-}
+
 instance ColumnResult PQ.Oid where
   columnParser = PQ.Oid <$> readableParser
+
+  {-# INLINE columnParser #-}
 
 instance ColumnResult Text where
   columnParser = textParser
 
+  {-# INLINE columnParser #-}
+
 instance (ColumnResult a, ColumnResult b) => ColumnResult (Either a b) where
   columnParser = (Left <$> columnParser) <!> (Right <$> columnParser)
+
+  {-# INLINE columnParser #-}
 
 -- | Provides a 'ColumnResult' instance using the 'Read' for @a@
 newtype ParseViaRead a = ParseViaRead a
 
 instance Read a => ColumnResult (ParseViaRead a) where
   columnParser = coerce $ readableParser @a
+
+  {-# INLINE columnParser #-}
 
 -- | The raw cell value
 data RawValue = RawValue
@@ -150,3 +178,5 @@ data RawValue = RawValue
 instance ColumnResult RawValue where
   columnParser = Parser $ \oid format ->
     Right $ Cell.Parser $ Right . RawValue oid format
+
+  {-# INLINE columnParser #-}
