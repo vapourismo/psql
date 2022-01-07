@@ -152,6 +152,9 @@ readable = onlyTextual (unchecked Cell.readable)
 --
 -- @since 0.0.0
 class AutoColumn a where
+  -- | Default column parser for @a@
+  --
+  -- @since 0.0.0
   autoColumn :: Column a
 
 -- | @since 0.0.0
@@ -221,7 +224,7 @@ newtype Readable a = Readable a
 
 -- | @since 0.0.0
 instance Read a => AutoColumn (Readable a) where
-  autoColumn = coerce $ readable @a
+  autoColumn = coerce (readable @a)
 
   {-# INLINE autoColumn #-}
 
