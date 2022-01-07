@@ -19,6 +19,7 @@ module PostgreSQL.Statement
   ( Template
   , code
   , identifier
+  , string
   , param
   , paramWith
   , constant
@@ -106,6 +107,11 @@ identifier name =
   code $ Text.concat ["\"", safeName, "\""]
   where
     safeName = Text.intercalate "\"\"" $ Text.split (== '"') name
+
+-- | Encase the given string literal in single quotes. Single quotes in the literal are
+-- automatically escaped.
+string :: Text -> Template a
+string str = "'" <> code (Text.replace "'" "''" str) <> "'"
 
 -- | Annotate the given statement with a type signature.
 annotateParamType :: Maybe Text -> Template a -> Template a

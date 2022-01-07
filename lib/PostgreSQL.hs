@@ -44,6 +44,7 @@ module PostgreSQL
   , Statement.tpl
   , Statement.code
   , Statement.identifier
+  , Statement.string
   , Statement.param
   , Statement.paramWith
   , Statement.constant
