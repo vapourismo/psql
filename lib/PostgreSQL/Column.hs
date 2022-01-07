@@ -33,7 +33,7 @@ import           Data.Functor.Alt (Alt (..))
 import           Data.Text (Text)
 import qualified Database.PostgreSQL.LibPQ as PQ
 import           Numeric.Natural (Natural)
-import qualified PostgreSQL.Cell as Cell
+import qualified PostgreSQL.Result.Cell as Cell
 import           PostgreSQL.Types (ParserError (..), ParserErrors, Value)
 
 -- | Parser for a result column

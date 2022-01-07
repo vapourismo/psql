@@ -9,7 +9,7 @@
 -- The derived Alt instance for Parser causes this.
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
-module PostgreSQL.Cell
+module PostgreSQL.Result.Cell
   ( Parser (..)
   , readableParser
   , ignoringParser

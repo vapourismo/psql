@@ -39,7 +39,6 @@ library
                     vector
   hs-source-dirs:   lib
   exposed-modules:  PostgreSQL
-                    PostgreSQL.Cell
                     PostgreSQL.Class
                     PostgreSQL.Column
                     PostgreSQL.ConnectionPool
@@ -47,6 +46,7 @@ library
                     PostgreSQL.Query
                     PostgreSQL.Query.Class
                     PostgreSQL.Result
+                    PostgreSQL.Result.Cell
                     PostgreSQL.Result.Class
                     PostgreSQL.Statement
                     PostgreSQL.Types

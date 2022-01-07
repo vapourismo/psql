@@ -43,8 +43,8 @@ import           Data.Foldable (for_)
 import           Data.Functor.Alt (Alt (..))
 import           Data.Maybe (fromMaybe)
 import qualified Database.PostgreSQL.LibPQ as PQ
-import qualified PostgreSQL.Cell as Cell
 import qualified PostgreSQL.Column as Column
+import qualified PostgreSQL.Result.Cell as Cell
 import qualified PostgreSQL.Result.Class as Class
 import           PostgreSQL.Types (ProcessorError (..), ProcessorErrors, ResultError (..),
                                    ResultErrors, Value (..))
