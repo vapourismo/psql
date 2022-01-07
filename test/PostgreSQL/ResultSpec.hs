@@ -18,7 +18,7 @@ import qualified Data.Vector as Vector
 import qualified Database.PostgreSQL.LibPQ as PQ
 import           PostgreSQL.Result (columnWith, namedColumnWith, runProcessor)
 import qualified PostgreSQL.Result.Class as Class
-import           PostgreSQL.Result.Column (ignoringParser)
+import qualified PostgreSQL.Result.Column as Column
 import           PostgreSQL.Types (ProcessorError (..), Value)
 import           Test.Hspec (Spec, describe, it, shouldBe)
 
@@ -104,14 +104,14 @@ spec = do
       let columns = K (PQ.invalidOid, PQ.Text, Nothing) :* Nil
 
       result <- runExceptT $ runStaticResultT columns Vector.empty $
-        runProcessor (columnWith ignoringParser) $ \_ _ ->
+        runProcessor (columnWith Column.ignored) $ \_ _ ->
           pure ()
 
       result `shouldBe` Right ()
 
     it "fails on too few columns" $ do
       result <- runExceptT $ runStaticResultT Nil Vector.empty $
-        runProcessor (columnWith ignoringParser) $ \_ _ ->
+        runProcessor (columnWith Column.ignored) $ \_ _ ->
           pure ()
 
       let
@@ -127,7 +127,7 @@ spec = do
       let columns = K (PQ.invalidOid, PQ.Text, Just missingColumnName) :* Nil
 
       result <- runExceptT $ runStaticResultT columns Vector.empty $
-        runProcessor (namedColumnWith missingColumnName ignoringParser) $ \_ _ ->
+        runProcessor (namedColumnWith missingColumnName Column.ignored) $ \_ _ ->
           pure ()
 
       result `shouldBe` Right ()
@@ -137,7 +137,7 @@ spec = do
       let columns = K (PQ.invalidOid, PQ.Text, Nothing) :* Nil
 
       result <- runExceptT $ runStaticResultT columns Vector.empty $
-        runProcessor (namedColumnWith missingColumnName ignoringParser) $ \_ _ ->
+        runProcessor (namedColumnWith missingColumnName Column.ignored) $ \_ _ ->
           pure ()
 
       let expectedError = MissingNamedColumn {processorError_wantedColumnName = missingColumnName}

@@ -125,12 +125,12 @@ makeRowProcessor
   :: ( Class.HasResult m
      , Except.MonadError ProcessorErrors m
      )
-  => Column.Parser a
+  => Column.Column a
   -- ^ Column parser
   -> PQ.Column
   -- ^ Column to process
   -> m (PQ.Row -> m a)
-makeRowProcessor (Column.Parser withColumn) column = do
+makeRowProcessor (Column.Column withColumn) column = do
   typ <- Class.columnType column
   format <- Class.columnFormat column
 
@@ -147,7 +147,7 @@ makeRowProcessor (Column.Parser withColumn) column = do
 
 -- | Process a column with the given parser.
 columnWith
-  :: Column.Parser a
+  :: Column.Column a
   -- ^ Column parser
   -> Processor a
 columnWith parser = Processor $ do
@@ -166,12 +166,12 @@ columnWith parser = Processor $ do
 
 {-# INLINE columnWith #-}
 
--- | Process a column. This is equivalent to 'columnWith' in conjunction with 'Column.columnParser'.
+-- | Process a column. This is equivalent to 'columnWith' in conjunction with 'Column.autoColumn'.
 column
-  :: Column.ColumnResult a
+  :: Column.AutoColumn a
   => Processor a
 column =
-  columnWith Column.columnParser
+  columnWith Column.autoColumn
 
 {-# INLINE column #-}
 
@@ -180,7 +180,7 @@ column =
 namedColumnWith
   :: ByteString.ByteString
   -- ^ Column name
-  -> Column.Parser a
+  -> Column.Column a
   -- ^ Column parser
   -> Processor a
 namedColumnWith columnName parser = Processor $ do
@@ -200,12 +200,12 @@ namedColumnWith columnName parser = Processor $ do
 -- | Process a column. Named columns do not advance the current column cursor - they don't interfere
 -- with 'column' and 'columnWith'.
 namedColumn
-  :: Column.ColumnResult a
+  :: Column.AutoColumn a
   => ByteString.ByteString
   -- ^ Column name
   -> Processor a
 namedColumn columnName =
-  namedColumnWith columnName Column.columnParser
+  namedColumnWith columnName Column.autoColumn
 
 {-# INLINE namedColumn #-}
 

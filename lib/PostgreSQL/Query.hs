@@ -167,65 +167,65 @@ class QueryResult a where
 instance QueryResult () where
   queryProcessor = pure ()
 
-instance Column.ColumnResult a => QueryResult (Identity a) where
+instance Column.AutoColumn a => QueryResult (Identity a) where
   queryProcessor = fmap Identity Result.column
 
   {-# INLINE queryProcessor #-}
 
 instance
-  ( Column.ColumnResult a
-  , Column.ColumnResult b
+  ( Column.AutoColumn a
+  , Column.AutoColumn b
   )
   => QueryResult (a, b)
 
 instance
-  ( Column.ColumnResult a
-  , Column.ColumnResult b
-  , Column.ColumnResult c
+  ( Column.AutoColumn a
+  , Column.AutoColumn b
+  , Column.AutoColumn c
   )
   => QueryResult (a, b, c)
 
 instance
-  ( Column.ColumnResult a
-  , Column.ColumnResult b
-  , Column.ColumnResult c
-  , Column.ColumnResult d
+  ( Column.AutoColumn a
+  , Column.AutoColumn b
+  , Column.AutoColumn c
+  , Column.AutoColumn d
   )
   => QueryResult (a, b, c, d)
 
 instance
-  ( Column.ColumnResult a
-  , Column.ColumnResult b
-  , Column.ColumnResult c
-  , Column.ColumnResult d
-  , Column.ColumnResult e
+  ( Column.AutoColumn a
+  , Column.AutoColumn b
+  , Column.AutoColumn c
+  , Column.AutoColumn d
+  , Column.AutoColumn e
   )
   => QueryResult (a, b, c, d, e)
 
 instance
-  ( Column.ColumnResult a
-  , Column.ColumnResult b
-  , Column.ColumnResult c
-  , Column.ColumnResult d
-  , Column.ColumnResult e
-  , Column.ColumnResult f
+  ( Column.AutoColumn a
+  , Column.AutoColumn b
+  , Column.AutoColumn c
+  , Column.AutoColumn d
+  , Column.AutoColumn e
+  , Column.AutoColumn f
   )
   => QueryResult (a, b, c, d, e, f)
 
 instance
-  ( Column.ColumnResult a
-  , Column.ColumnResult b
-  , Column.ColumnResult c
-  , Column.ColumnResult d
-  , Column.ColumnResult e
-  , Column.ColumnResult f
-  , Column.ColumnResult g
+  ( Column.AutoColumn a
+  , Column.AutoColumn b
+  , Column.AutoColumn c
+  , Column.AutoColumn d
+  , Column.AutoColumn e
+  , Column.AutoColumn f
+  , Column.AutoColumn g
   )
   => QueryResult (a, b, c, d, e, f, g)
 
 ---
 
-instance Column.ColumnResult a => QueryResult (Generics.K1 tag a x) where
+instance Column.AutoColumn a => QueryResult (Generics.K1 tag a x) where
   queryProcessor = Generics.K1 <$> Result.column
 
   {-# INLINE queryProcessor #-}

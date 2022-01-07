@@ -57,7 +57,8 @@ module PostgreSQL
   , Result.namedColumn
   , Result.namedColumnWith
 
-  , Column.ColumnResult (..)
+    -- ** Columns
+  , Column.AutoColumn (..)
 
     -- * Errors
   , Error (..)

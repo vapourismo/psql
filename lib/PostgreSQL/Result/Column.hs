@@ -1,33 +1,43 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
+-- | Exports of this module are concerned with columns in a Postgres query result. This includes
+-- validation of type and format. Parsing of the actual cell values in a column is delegated to
+-- "PostgreSQL.Result.Cell".
 module PostgreSQL.Result.Column
-  ( -- * Parser
-    Parser (..)
+  ( -- * Column
+    Column (..)
+
+    -- ** Basics
+  , ignored
+  , raw
+  , text
+  , readable
+
+    -- ** Helpful combinators
+  , unchecked
+  , validate
+  , onlyTextual
+  , onlyBinary
+
+    -- * Class
+  , AutoColumn (..)
+
+    -- * Errors
   , ParserError (..)
   , ParserErrors
 
-    -- ** Basic parsers
-  , readableParser
-  , ignoringParser
-  , textParser
-
-    -- ** Parser validators
-  , onlyTextualParser
-  , validateParser
-
-    -- * Class
-  , ColumnResult (..)
-
     -- * Helpers
-  , ParseViaRead (..)
+  , Readable (..)
   , RawValue (..)
   )
 where
 
+import           Data.ByteString (ByteString)
 import           Data.Coerce (coerce)
 import           Data.Functor.Alt (Alt (..))
 import           Data.Text (Text)
@@ -36,17 +46,20 @@ import           Numeric.Natural (Natural)
 import qualified PostgreSQL.Result.Cell as Cell
 import           PostgreSQL.Types (ParserError (..), ParserErrors, Value)
 
--- | Parser for a result column
-newtype Parser a = Parser
-  { runParser
-    :: PQ.Oid -- OID of the column type
-    -> PQ.Format -- Format in which the cells of this column will appear
-    -> Either ParserErrors (Cell.Cell a)
+-- | Result column parser
+--
+-- @since 0.0.0
+newtype Column a = Column
+  { parseColumn
+      :: PQ.Oid -- OID of the column type
+      -> PQ.Format -- Format in which the cells of this column will appear
+      -> Either ParserErrors (Cell.Cell a)
   }
-  deriving stock Functor
+  deriving stock Functor -- ^ @since 0.0.0
 
-instance Alt Parser where
-  Parser lhs <!> Parser rhs = Parser $ \typ format ->
+-- | @since 0.0.0
+instance Alt Column where
+  Column lhs <!> Column rhs = Column $ \typ format ->
     case (lhs typ format, rhs typ format) of
       (Right lhsParser, Right rhsParser) ->
         -- Both parsers at the column level succeeded. This means we must pass the alternation down
@@ -63,111 +76,158 @@ instance Alt Parser where
 
   {-# INLINE (<!>) #-}
 
--- | Pass through cell parser that does nothing to validate the column beforehand.
-unchecked :: Cell.Cell a -> Parser a
-unchecked parser = Parser $ \_ _ -> Right parser
+-- | Lift a cell parser. This does perform any validation on column type or format.
+--
+-- @since 0.0.0
+unchecked :: Cell.Cell a -> Column a
+unchecked parser = Column $ \_ _ -> Right parser
 
 {-# INLINE unchecked #-}
 
--- | Only allow 'PQ.Text' format.
-onlyTextualParser :: Parser a -> Parser a
-onlyTextualParser (Parser run) = Parser $ \oid format ->
+-- | Only allow textual format.
+--
+-- @since 0.0.0
+onlyTextual :: Column a -> Column a
+onlyTextual (Column run) = Column $ \oid format ->
   case format of
     PQ.Binary -> Left [UnsupportedFormat format]
     PQ.Text -> run oid format
 
-{-# INLINE onlyTextualParser #-}
+{-# INLINE onlyTextual #-}
 
--- | Validate the result of a parser.
-validateParser :: Parser a -> (a -> Either Text b) -> Parser b
-validateParser (Parser run) f = Parser $ \oid fmt -> do
+-- | Only allow binary format.
+--
+-- @since 0.0.0
+onlyBinary :: Column a -> Column a
+onlyBinary (Column run) = Column $ \oid format ->
+  case format of
+    PQ.Text -> Left [UnsupportedFormat format]
+    PQ.Binary -> run oid format
+
+{-# INLINE onlyBinary #-}
+
+-- | Validate the result of a cell parser.
+--
+-- @since 0.0.0
+validate :: Column a -> (a -> Either Text b) -> Column b
+validate (Column run) f = Column $ \oid fmt -> do
   parser <- run oid fmt
   pure (Cell.validate parser f)
 
-{-# INLINE validateParser #-}
-
--- | Parse anything using its 'Read' instance. Only supports textual format and rejects @NULL@
--- values.
-readableParser :: Read a => Parser a
-readableParser = onlyTextualParser $ unchecked Cell.readable
-
-{-# INLINE readableParser #-}
+{-# INLINE validate #-}
 
 -- | Don't parse the column.
-ignoringParser :: Parser ()
-ignoringParser = unchecked Cell.ignored
+--
+-- @since 0.0.0
+ignored :: Column ()
+ignored = unchecked Cell.ignored
 
-{-# INLINE ignoringParser #-}
+{-# INLINE ignored #-}
 
--- | Parse as UTF-8 'Text'.
-textParser :: Parser Text
-textParser = onlyTextualParser $ unchecked Cell.text
+-- | Raw value. Rejects @NULL@.
+--
+-- @since 0.0.0
+raw :: Column ByteString
+raw = unchecked Cell.raw
 
-{-# INLINE textParser #-}
+{-# INLINE raw #-}
 
--- | Can parse a column in the 'PQ.Result'
-class ColumnResult a where
-  columnParser :: Parser a
+-- | Parse as UTF-8 'Text'. See 'Cell.text'.
+--
+-- @since 0.0.0
+text :: Column Text
+text = onlyTextual (unchecked Cell.text)
 
-instance ColumnResult () where
-  columnParser = ignoringParser
+{-# INLINE text #-}
 
-  {-# INLINE columnParser #-}
+-- | Parse something using its 'Read' instance. Only supports textual format. See 'Cell.readable'.
+--
+-- @since 0.0.0
+readable :: Read a => Column a
+readable = onlyTextual (unchecked Cell.readable)
 
-instance ColumnResult Int where
-  columnParser = readableParser
+{-# INLINE readable #-}
 
-  {-# INLINE columnParser #-}
+-- | Default column parser for a type
+--
+-- @since 0.0.0
+class AutoColumn a where
+  autoColumn :: Column a
 
-instance ColumnResult Word where
-  columnParser = readableParser
+-- | @since 0.0.0
+instance AutoColumn () where
+  autoColumn = ignored
 
-  {-# INLINE columnParser #-}
+  {-# INLINE autoColumn #-}
 
-instance ColumnResult Integer where
-  columnParser = readableParser
+-- | @since 0.0.0
+instance AutoColumn Int where
+  autoColumn = readable
 
-  {-# INLINE columnParser #-}
+  {-# INLINE autoColumn #-}
 
-instance ColumnResult Natural where
-  columnParser = readableParser
+-- | @since 0.0.0
+instance AutoColumn Word where
+  autoColumn = readable
 
-  {-# INLINE columnParser #-}
+  {-# INLINE autoColumn #-}
 
-instance ColumnResult Float where
-  columnParser = readableParser
+-- | @since 0.0.0
+instance AutoColumn Integer where
+  autoColumn = readable
 
-  {-# INLINE columnParser #-}
+  {-# INLINE autoColumn #-}
 
-instance ColumnResult Double where
-  columnParser = readableParser
+-- | @since 0.0.0
+instance AutoColumn Natural where
+  autoColumn = readable
 
-  {-# INLINE columnParser #-}
+  {-# INLINE autoColumn #-}
 
-instance ColumnResult PQ.Oid where
-  columnParser = PQ.Oid <$> readableParser
+-- | @since 0.0.0
+instance AutoColumn Float where
+  autoColumn = readable
 
-  {-# INLINE columnParser #-}
+  {-# INLINE autoColumn #-}
 
-instance ColumnResult Text where
-  columnParser = textParser
+-- | @since 0.0.0
+instance AutoColumn Double where
+  autoColumn = readable
 
-  {-# INLINE columnParser #-}
+  {-# INLINE autoColumn #-}
 
-instance (ColumnResult a, ColumnResult b) => ColumnResult (Either a b) where
-  columnParser = (Left <$> columnParser) <!> (Right <$> columnParser)
+-- | @since 0.0.0
+instance AutoColumn PQ.Oid where
+  autoColumn = PQ.Oid <$> readable
 
-  {-# INLINE columnParser #-}
+  {-# INLINE autoColumn #-}
 
--- | Provides a 'ColumnResult' instance using the 'Read' for @a@
-newtype ParseViaRead a = ParseViaRead a
+-- | @since 0.0.0
+instance AutoColumn Text where
+  autoColumn = text
 
-instance Read a => ColumnResult (ParseViaRead a) where
-  columnParser = coerce $ readableParser @a
+  {-# INLINE autoColumn #-}
 
-  {-# INLINE columnParser #-}
+-- | @since 0.0.0
+instance (AutoColumn a, AutoColumn b) => AutoColumn (Either a b) where
+  autoColumn = fmap Left autoColumn <!> fmap Right autoColumn
+
+  {-# INLINE autoColumn #-}
+
+-- | Provides a 'AutoColumn' instance using the 'Read' for @a@
+--
+-- @since 0.0.0
+newtype Readable a = Readable a
+
+-- | @since 0.0.0
+instance Read a => AutoColumn (Readable a) where
+  autoColumn = coerce $ readable @a
+
+  {-# INLINE autoColumn #-}
 
 -- | The raw cell value
+--
+-- @since 0.0.0
 data RawValue = RawValue
   { rawValue_type :: PQ.Oid
   , rawValue_format :: PQ.Format
@@ -175,8 +235,9 @@ data RawValue = RawValue
   }
   deriving stock (Show, Eq, Ord)
 
-instance ColumnResult RawValue where
-  columnParser = Parser $ \oid format ->
+-- | @since 0.0.0
+instance AutoColumn RawValue where
+  autoColumn = Column $ \oid format ->
     Right $ Cell.Cell $ Right . RawValue oid format
 
-  {-# INLINE columnParser #-}
+  {-# INLINE autoColumn #-}
