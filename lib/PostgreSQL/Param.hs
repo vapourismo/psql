@@ -93,7 +93,7 @@ class Param a where
 instance Param Integer where
   paramInfo = Info
     { info_type = InferredType
-    , info_typeName = Just "integer"
+    , info_typeName = Nothing
     , info_format = PQ.Text
     , info_pack = Value . ByteString.Char8.pack . show
     }
