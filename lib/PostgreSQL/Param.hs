@@ -30,7 +30,8 @@ import           Data.Text (Text)
 import           Data.Text.Encoding (encodeUtf8)
 import qualified Database.PostgreSQL.LibPQ as PQ
 import           GHC.Generics (Generic)
-import           PostgreSQL.Types (PackedParam (..), PackedParamPrepared (..), Value (..))
+import           PostgreSQL.Types (PackedParam (..), PackedParamPrepared (..), RegType (..),
+                                   Value (..))
 
 data Type
   = InferredType
@@ -112,6 +113,22 @@ instance Param Text where
     , info_typeName = Nothing
     , info_format = PQ.Text
     , info_pack = Value . encodeUtf8
+    }
+
+instance Param PQ.Oid where
+  paramInfo = Info
+    { info_type = InferredType
+    , info_typeName = Just "oid"
+    , info_format = PQ.Text
+    , info_pack = \(PQ.Oid inner) -> Value $ ByteString.Char8.pack $ show inner
+    }
+
+instance Param RegType where
+  paramInfo = Info
+    { info_type = InferredType
+    , info_typeName = Just "regtype"
+    , info_format = PQ.Text
+    , info_pack = Value . encodeUtf8 . unRegType
     }
 
 -- | Raw textual parameter

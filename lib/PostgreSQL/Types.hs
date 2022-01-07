@@ -6,6 +6,7 @@
 
 module PostgreSQL.Types
   ( Value (..)
+  , RegType (..)
   , PackedParam (..)
   , PackedParamPrepared (..)
   , PQ.Format (..)
@@ -26,6 +27,7 @@ import           Control.Monad.Error.Class (MonadError)
 import           Data.ByteString (ByteString)
 import           Data.Functor.Alt (Alt)
 import           Data.List.NonEmpty (NonEmpty)
+import           Data.String (IsString)
 import           Data.Text (Text)
 import qualified Database.PostgreSQL.LibPQ as PQ
 
@@ -34,6 +36,11 @@ data Value
   = Null
   | Value ByteString
   deriving (Show, Eq, Ord)
+
+-- | Postgre's regtype
+newtype RegType = RegType
+  { unRegType :: Text }
+  deriving newtype (Show, Read, Eq, Ord, IsString)
 
 -- | Packed parameter
 newtype PackedParam = PackedParam (Maybe (PQ.Oid, ByteString, PQ.Format))

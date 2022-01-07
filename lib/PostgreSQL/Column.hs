@@ -124,6 +124,9 @@ instance ColumnResult Float where
 instance ColumnResult Double where
   columnParser = readableParser
 
+instance ColumnResult PQ.Oid where
+  columnParser = PQ.Oid <$> readableParser
+
 instance ColumnResult Text where
   columnParser = textParser
 
