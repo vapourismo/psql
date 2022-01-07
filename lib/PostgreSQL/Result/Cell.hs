@@ -6,15 +6,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
--- The derived Alt instance for Parser causes this.
+-- The derived Alt instance for Cell causes this.
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
 module PostgreSQL.Result.Cell
-  ( Parser (..)
-  , readableParser
-  , ignoringParser
-  , textParser
-  , validateParser
+  ( Cell (..)
+  , readable
+  , ignored
+  , text
+  , validate
   )
 where
 
@@ -31,37 +31,48 @@ import           Data.Text.Encoding (decodeUtf8)
 import           PostgreSQL.Types (Value (..))
 import           Text.Read (readEither)
 
--- | Parser of a cell value
-newtype Parser a = Parser
-  { runParser :: Value -> Either (NonEmpty Text) a }
-  deriving stock Functor
+-- | Cell value parser
+--
+-- @since 0.0.0
+newtype Cell a = Cell
+  { parseCell :: Value -> Either (NonEmpty Text) a }
+  deriving stock Functor -- ^ @since 0.0.0
 
-deriving via ReaderT Value (Except (NonEmpty Text)) instance Alt Parser
+-- | @since 0.0.0
+deriving via ReaderT Value (Except (NonEmpty Text)) instance Alt Cell
 
 -- | Parse anything using its 'Read' instance. Rejects @NULL@ values.
-readableParser :: Read a => Parser a
-readableParser = Parser $ \case
+--
+-- @since 0.0.0
+readable :: Read a => Cell a
+readable = Cell $ \case
   Null -> Left ["Can't be NULL"]
   Value text -> first (pure . Text.pack) $ readEither $ Text.unpack $ decodeUtf8 text
 
-{-# INLINE readableParser #-}
+{-# INLINE readable #-}
 
 -- | Do not parse the cell at all.
-ignoringParser :: Parser ()
-ignoringParser = Parser $ \_ -> Right ()
+--
+-- @since 0.0.0
+ignored :: Cell ()
+ignored = Cell $ \_ -> Right ()
 
-{-# INLINE ignoringParser #-}
+{-# INLINE ignored #-}
 
 -- | Parse as UTF-8 'Text'
-textParser :: Parser Text
-textParser = Parser $ \case
+--
+-- @since 0.0.0
+text :: Cell Text
+text = Cell $ \case
   Null -> Left ["Can't be NULL"]
   Value encoded -> Right (decodeUtf8 encoded)
 
-{-# INLINE textParser #-}
+{-# INLINE text #-}
 
 -- | Validate the given cell parser.
-validateParser :: Parser a -> (a -> Either Text b) -> Parser b
-validateParser (Parser run) f = Parser (run >=> first pure . f)
+--
+-- @since 0.0.0
+validate :: Cell a -> (a -> Either Text b) -> Cell b
+validate (Cell run) f = Cell (run >=> first pure . f)
 
-{-# INLINE validateParser #-}
+{-# INLINE validate #-}

@@ -134,7 +134,7 @@ makeRowProcessor (Column.Parser withColumn) column = do
   typ <- Class.columnType column
   format <- Class.columnFormat column
 
-  Cell.Parser parseCell <-
+  Cell.Cell parseCell <-
     Except.liftEither $ first (fmap (ColumnParserError column typ format)) $ withColumn typ format
 
   pure $ \row -> do

@@ -41,7 +41,7 @@ newtype Parser a = Parser
   { runParser
     :: PQ.Oid -- OID of the column type
     -> PQ.Format -- Format in which the cells of this column will appear
-    -> Either ParserErrors (Cell.Parser a)
+    -> Either ParserErrors (Cell.Cell a)
   }
   deriving stock Functor
 
@@ -64,7 +64,7 @@ instance Alt Parser where
   {-# INLINE (<!>) #-}
 
 -- | Pass through cell parser that does nothing to validate the column beforehand.
-unchecked :: Cell.Parser a -> Parser a
+unchecked :: Cell.Cell a -> Parser a
 unchecked parser = Parser $ \_ _ -> Right parser
 
 {-# INLINE unchecked #-}
@@ -82,26 +82,26 @@ onlyTextualParser (Parser run) = Parser $ \oid format ->
 validateParser :: Parser a -> (a -> Either Text b) -> Parser b
 validateParser (Parser run) f = Parser $ \oid fmt -> do
   parser <- run oid fmt
-  pure (Cell.validateParser parser f)
+  pure (Cell.validate parser f)
 
 {-# INLINE validateParser #-}
 
 -- | Parse anything using its 'Read' instance. Only supports textual format and rejects @NULL@
 -- values.
 readableParser :: Read a => Parser a
-readableParser = onlyTextualParser $ unchecked Cell.readableParser
+readableParser = onlyTextualParser $ unchecked Cell.readable
 
 {-# INLINE readableParser #-}
 
 -- | Don't parse the column.
 ignoringParser :: Parser ()
-ignoringParser = unchecked Cell.ignoringParser
+ignoringParser = unchecked Cell.ignored
 
 {-# INLINE ignoringParser #-}
 
 -- | Parse as UTF-8 'Text'.
 textParser :: Parser Text
-textParser = onlyTextualParser $ unchecked Cell.textParser
+textParser = onlyTextualParser $ unchecked Cell.text
 
 {-# INLINE textParser #-}
 
@@ -177,6 +177,6 @@ data RawValue = RawValue
 
 instance ColumnResult RawValue where
   columnParser = Parser $ \oid format ->
-    Right $ Cell.Parser $ Right . RawValue oid format
+    Right $ Cell.Cell $ Right . RawValue oid format
 
   {-# INLINE columnParser #-}
