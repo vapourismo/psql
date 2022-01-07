@@ -50,7 +50,7 @@ import           Data.Functor.Apply (Apply)
 import           Data.Functor.Bind (Bind (..))
 import           Data.Functor.Identity (Identity (..))
 import qualified Data.List.NonEmpty as NonEmpty
-import qualified Data.Text as Text
+import           Data.Text.Encoding (decodeUtf8)
 import qualified Data.Vector as Vector
 import           Data.Void (Void)
 import qualified Database.PostgreSQL.LibPQ as PQ
@@ -350,7 +350,7 @@ deallocatePreparedStatement
 deallocatePreparedStatement statement =
   execute_ [Statement.stmt| DEALLOCATE $(quotedName) |] ()
   where
-    quotedName = Statement.code $ Text.pack $ show $ Statement.preparedStatement_name statement
+    quotedName = Statement.identifier $ decodeUtf8 $ Statement.preparedStatement_name statement
 
 instance (MonadIO m, MonadMask m) => Class.Query (QueryT m) where
   type Result (QueryT m) = PQ.Result
