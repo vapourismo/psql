@@ -58,6 +58,10 @@ textParser = Parser $ \case
   Null -> Left ["Can't be NULL"]
   Value encoded -> Right (decodeUtf8 encoded)
 
+{-# INLINE textParser #-}
+
 -- | Validate the given cell parser.
 validateParser :: Parser a -> (a -> Either Text b) -> Parser b
 validateParser (Parser run) f = Parser (run >=> first pure . f)
+
+{-# INLINE validateParser #-}
