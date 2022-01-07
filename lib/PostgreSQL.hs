@@ -81,9 +81,9 @@ where
 
 import qualified Database.PostgreSQL.LibPQ as PQ
 import qualified PostgreSQL.Class as Class
-import qualified PostgreSQL.Column as Column
 import qualified PostgreSQL.ConnectionPool as ConnectionPool
 import qualified PostgreSQL.Query as Query
 import qualified PostgreSQL.Result as Result
+import qualified PostgreSQL.Result.Column as Column
 import qualified PostgreSQL.Statement as Statement
 import           PostgreSQL.Types (Assembler, Error (..), Errors)

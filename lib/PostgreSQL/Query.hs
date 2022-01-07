@@ -55,10 +55,10 @@ import qualified Data.Vector as Vector
 import           Data.Void (Void)
 import qualified Database.PostgreSQL.LibPQ as PQ
 import qualified GHC.Generics as Generics
-import qualified PostgreSQL.Column as Column
 import qualified PostgreSQL.Param as Param
 import qualified PostgreSQL.Query.Class as Class
 import qualified PostgreSQL.Result as Result
+import qualified PostgreSQL.Result.Column as Column
 import qualified PostgreSQL.Statement as Statement
 import           PostgreSQL.Types (Assembler, Error (..), Errors)
 

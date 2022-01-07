@@ -4,7 +4,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
-module PostgreSQL.Column
+module PostgreSQL.Result.Column
   ( -- * Parser
     Parser (..)
   , ParserError (..)

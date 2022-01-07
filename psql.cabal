@@ -40,7 +40,6 @@ library
   hs-source-dirs:   lib
   exposed-modules:  PostgreSQL
                     PostgreSQL.Class
-                    PostgreSQL.Column
                     PostgreSQL.ConnectionPool
                     PostgreSQL.Param
                     PostgreSQL.Query
@@ -48,6 +47,7 @@ library
                     PostgreSQL.Result
                     PostgreSQL.Result.Cell
                     PostgreSQL.Result.Class
+                    PostgreSQL.Result.Column
                     PostgreSQL.Statement
                     PostgreSQL.Types
 

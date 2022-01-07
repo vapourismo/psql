@@ -16,9 +16,9 @@ import qualified Data.HashMap.Strict as HashMap
 import           Data.SOP (HCollapse (hcollapse), K (..), NP (..), SListI)
 import qualified Data.Vector as Vector
 import qualified Database.PostgreSQL.LibPQ as PQ
-import           PostgreSQL.Column (ignoringParser)
 import           PostgreSQL.Result (columnWith, namedColumnWith, runProcessor)
 import qualified PostgreSQL.Result.Class as Class
+import           PostgreSQL.Result.Column (ignoringParser)
 import           PostgreSQL.Types (ProcessorError (..), Value)
 import           Test.Hspec (Spec, describe, it, shouldBe)
 
