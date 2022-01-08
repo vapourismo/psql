@@ -46,16 +46,16 @@ import qualified Database.PostgreSQL.LibPQ as PQ
 import qualified PostgreSQL.Result.Cell as Cell
 import qualified PostgreSQL.Result.Class as Class
 import qualified PostgreSQL.Result.Column as Column
-import           PostgreSQL.Types (ProcessorError (..), ProcessorErrors, ResultError (..),
-                                   ResultErrors, Value (..))
+import           PostgreSQL.Types (ColumnNum (..), ProcessorError (..), ProcessorErrors,
+                                   ResultError (..), ResultErrors, RowNum (..), Value (..))
 
 ---
 
 type ProcessorImpl m = (Except.MonadError ProcessorErrors m, Alt m, Class.HasResult m)
 
 data ProcessorState = ProcessorState
-  { processorState_nextColumn :: PQ.Column
-  , processorState_numColumns :: PQ.Column
+  { processorState_nextColumn :: ColumnNum
+  , processorState_numColumns :: ColumnNum
   }
 
 -- | Result processor
@@ -72,7 +72,7 @@ data ProcessorState = ProcessorState
 -- > result = Foo <$> column <*> column
 --
 newtype Processor a = Processor
-  { _unProcessor :: forall m. ProcessorImpl m => State.StateT ProcessorState m (m (PQ.Row -> m a)) }
+  { _unProcessor :: forall m. ProcessorImpl m => State.StateT ProcessorState m (m (RowNum -> m a)) }
   deriving stock Functor
 
 instance Applicative Processor where
@@ -97,7 +97,7 @@ runProcessor
   :: (Except.MonadError ProcessorErrors m, Alt m, Class.HasResult m)
   => Processor a
   -- ^ Result processor
-  -> (PQ.Row -> (PQ.Row -> m a) -> m b)
+  -> (RowNum -> (RowNum -> m a) -> m b)
   -- ^ This function is given the number of rows and an action to retrieve each row.
   -> m b
 runProcessor (Processor parseColumn) return = do
@@ -127,9 +127,9 @@ makeRowProcessor
      )
   => Column.Column a
   -- ^ Column parser
-  -> PQ.Column
+  -> ColumnNum
   -- ^ Column to process
-  -> m (PQ.Row -> m a)
+  -> m (RowNum -> m a)
 makeRowProcessor (Column.Column withColumn) column = do
   typ <- Class.columnType column
   format <- Class.columnFormat column
@@ -228,32 +228,32 @@ instance Alt m => Alt (ResultT m) where
 
 instance MonadIO m => Class.HasResult (ResultT m) where
   numColumns = ResultT $ Reader.ReaderT $ \result ->
-    liftIO $ PQ.nfields result
+    liftIO $ fmap ColumnNum $ PQ.nfields result
 
   {-# INLINE numColumns #-}
 
   numRows = ResultT $ Reader.ReaderT $ \result ->
-    liftIO $ PQ.ntuples result
+    liftIO $ fmap RowNum $ PQ.ntuples result
 
   {-# INLINE numRows #-}
 
   columnType col = ResultT $ Reader.ReaderT $ \result ->
-    liftIO $ PQ.ftype result col
+    liftIO $ PQ.ftype result $ fromColumnNum col
 
   {-# INLINE columnType #-}
 
   columnFormat col = ResultT $ Reader.ReaderT $ \result ->
-    liftIO $ PQ.fformat result col
+    liftIO $ PQ.fformat result $ fromColumnNum col
 
   {-# INLINE columnFormat #-}
 
   cellValue col row = ResultT $ Reader.ReaderT $ \result ->
-    liftIO $ maybe Null Value <$> PQ.getvalue' result row col
+    liftIO $ maybe Null Value <$> PQ.getvalue' result (fromRowNum row) (fromColumnNum col)
 
   {-# INLINE cellValue #-}
 
   columnFromName name = ResultT $ Reader.ReaderT $ \result ->
-    liftIO $ PQ.fnumber result name
+    liftIO $ fmap ColumnNum <$> PQ.fnumber result name
 
   {-# INLINE columnFromName #-}
 

@@ -19,12 +19,12 @@ import qualified Database.PostgreSQL.LibPQ as PQ
 import           PostgreSQL.Result (columnWith, namedColumnWith, runProcessor)
 import qualified PostgreSQL.Result.Class as Class
 import qualified PostgreSQL.Result.Column as Column
-import           PostgreSQL.Types (ProcessorError (..), Value)
+import           PostgreSQL.Types (ColumnNum, ProcessorError (..), Value)
 import           Test.Hspec (Spec, describe, it, shouldBe)
 
 data StaticResult = StaticResult
   { staticResult_columns :: Vector.Vector (PQ.Oid, PQ.Format)
-  , staticResult_namedColumns :: HashMap.HashMap ByteString PQ.Column
+  , staticResult_namedColumns :: HashMap.HashMap ByteString ColumnNum
   , staticResult_rows :: Vector.Vector (Vector.Vector Value)
   }
 
@@ -61,8 +61,8 @@ runStaticResultT columns rows (StaticResultT (Reader.ReaderT run)) =
 
     vectorRows = Vector.map (Vector.fromList . hcollapse) rows
 
-columnInfo :: MonadFail m => PQ.Column -> StaticResultT m (PQ.Oid, PQ.Format)
-columnInfo (PQ.Col col) = StaticResultT $ Reader.ReaderT $ \staticResult -> do
+columnInfo :: MonadFail m => ColumnNum -> StaticResultT m (PQ.Oid, PQ.Format)
+columnInfo col = StaticResultT $ Reader.ReaderT $ \staticResult -> do
   let columnIndex = fromIntegral col
 
   when (columnIndex >= Vector.length (staticResult_columns staticResult)) $
@@ -81,7 +81,7 @@ instance MonadFail m => Class.HasResult (StaticResultT m) where
 
   columnFormat = fmap snd . columnInfo
 
-  cellValue (PQ.Col col) (PQ.Row row) = StaticResultT $ Reader.ReaderT $ \staticResult -> do
+  cellValue col row = StaticResultT $ Reader.ReaderT $ \staticResult -> do
     let columnIndex = fromIntegral col
 
     when (columnIndex >= Vector.length (staticResult_columns staticResult)) $

@@ -12,27 +12,27 @@ where
 import           Control.Monad.Trans (MonadTrans, lift)
 import           Data.ByteString (ByteString)
 import qualified Database.PostgreSQL.LibPQ as PQ
-import           PostgreSQL.Types (Value)
+import           PostgreSQL.Types (ColumnNum, RowNum, Value)
 
 -- | @m@ provices access to a query result
 class HasResult m where
   -- | Number of columns
-  numColumns :: m PQ.Column
+  numColumns :: m ColumnNum
 
   -- | Number of rows
-  numRows :: m PQ.Row
+  numRows :: m RowNum
 
   -- | Type of a column
-  columnType :: PQ.Column -> m PQ.Oid
+  columnType :: ColumnNum -> m PQ.Oid
 
   -- | Format of cells belonging to a column
-  columnFormat :: PQ.Column -> m PQ.Format
+  columnFormat :: ColumnNum -> m PQ.Format
 
   -- | Value of a cell
-  cellValue :: PQ.Column -> PQ.Row -> m Value
+  cellValue :: ColumnNum -> RowNum -> m Value
 
   -- | Column number of a named column
-  columnFromName :: ByteString -> m (Maybe PQ.Column)
+  columnFromName :: ByteString -> m (Maybe ColumnNum)
 
 instance {-# OVERLAPPABLE #-} (MonadTrans t, HasResult m, Monad m) => HasResult (t m) where
   numColumns = lift numColumns

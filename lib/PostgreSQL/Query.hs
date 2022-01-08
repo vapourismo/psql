@@ -60,7 +60,7 @@ import qualified PostgreSQL.Query.Class as Class
 import qualified PostgreSQL.Result as Result
 import qualified PostgreSQL.Result.Column as Column
 import qualified PostgreSQL.Statement as Statement
-import           PostgreSQL.Types (Assembler, Error (..), Errors)
+import           PostgreSQL.Types (Assembler, Error (..), Errors, RowNum)
 
 ---
 
@@ -79,10 +79,10 @@ execute_ statement param =
 
 buildVector
   :: Monad m
-  => PQ.Row
-  -> (PQ.Row -> m a)
+  => RowNum
+  -> (RowNum -> m a)
   -> m (Vector.Vector a)
-buildVector (PQ.Row row) mkRow =
+buildVector row mkRow =
   Vector.generateM (fromIntegral row) (mkRow . fromIntegral)
 
 {-# INLINE buildVector #-}

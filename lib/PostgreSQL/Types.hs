@@ -1,5 +1,5 @@
 {-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RankNTypes #-}
@@ -32,6 +32,7 @@ import           Data.List.NonEmpty (NonEmpty)
 import           Data.String (IsString)
 import           Data.Text (Text)
 import qualified Database.PostgreSQL.LibPQ as PQ
+import           Foreign.C.Types (CInt)
 
 -- | Value
 data Value
@@ -63,22 +64,22 @@ type ParserErrors = NonEmpty ParserError
 -- | Error that may occur during processing
 data ProcessorError
   = ColumnParserError
-    { processorError_column :: PQ.Column
+    { processorError_column :: ColumnNum
     , processorError_type :: PQ.Oid
     , processorError_format :: PQ.Format
     , processorError_columnError :: ParserError
     }
   | CellParserError
-    { processorError_column :: PQ.Column
+    { processorError_column :: ColumnNum
     , processorError_type :: PQ.Oid
     , processorError_format :: PQ.Format
-    , processorError_row :: PQ.Row
+    , processorError_row :: RowNum
     , processorError_value :: Value
     , processorError_cellError :: Text
     }
   | NotEnoughColumns
-    { processorError_wantedColumns :: PQ.Column
-    , processorError_haveColumns :: PQ.Column
+    { processorError_wantedColumns :: ColumnNum
+    , processorError_haveColumns :: ColumnNum
     }
   | MissingNamedColumn
     { processorError_wantedColumnName :: ByteString
@@ -106,12 +107,14 @@ type Errors = NonEmpty Error
 
 -- | Given a number of rows and a way to fetch each row, assemble the result.
 type Assembler row result =
-  forall n. (MonadError ProcessorErrors n, Alt n) => PQ.Row -> (PQ.Row -> n row) -> n result
+  forall n. (MonadError ProcessorErrors n, Alt n) => RowNum -> (RowNum -> n row) -> n result
 
 -- | Numberic column identifier
-newtype ColumnNum = ColumnNum Word
-  deriving newtype (Show, Read, Eq, Ord, Enum, Bounded, Num)
+newtype ColumnNum = ColumnNum
+  { fromColumnNum :: PQ.Column }
+  deriving (Show, Read, Eq, Ord, Enum, Bounded, Num, Integral, Real) via CInt
 
 -- | Numberic row identifier
-newtype RowNum = RowNum Word
-  deriving newtype (Show, Read, Eq, Ord, Enum, Bounded, Num)
+newtype RowNum = RowNum
+  { fromRowNum :: PQ.Row }
+  deriving (Show, Read, Eq, Ord, Enum, Bounded, Num, Integral, Real) via CInt
