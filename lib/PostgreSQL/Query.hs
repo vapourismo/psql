@@ -110,6 +110,7 @@ newtype QueryT m a = QueryT
     , MonadIO
     , MonadState s
     , MonadWriter s
+    , Except.MonadError Errors
     , MonadThrow
     , MonadCatch
     , MonadMask
@@ -129,19 +130,6 @@ instance MonadTrans QueryT where
   lift = QueryT . lift . lift
 
   {-# INLINE lift #-}
-
-instance Except.MonadError e m => Except.MonadError e (QueryT m) where
-  throwError = QueryT . lift . lift . Except.throwError
-
-  {-# INLINE throwError #-}
-
-  catchError action handle = QueryT
-    $ Reader.ReaderT
-    $ \conn -> Except.ExceptT
-    $ Except.catchError (runQueryT conn action)
-    $ runQueryT conn .  handle
-
-  {-# INLINE catchError #-}
 
 instance Reader.MonadReader r m => Reader.MonadReader r (QueryT m) where
   ask = QueryT $ lift $ lift Reader.ask
