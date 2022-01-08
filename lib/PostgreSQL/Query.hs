@@ -58,9 +58,9 @@ import           PostgreSQL.Types (Error (..), Errors)
 -- | Like 'execute' but does not concern itself with the result handle.
 execute_
   :: (Class.Executable statement, Class.Query query)
-  => statement a
+  => statement param
   -- ^ Statement
-  -> a
+  -> param
   -- ^ Statement input
   -> query ()
 execute_ statement param =

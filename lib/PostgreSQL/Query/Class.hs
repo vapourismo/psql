@@ -54,9 +54,9 @@ class Executable statement where
   -- | Execute a statement.
   execute
     :: Query query
-    => statement a
+    => statement param
     -- ^ Statement
-    -> a
+    -> param
     -- ^ Statement input
     -> query (Result query)
 
