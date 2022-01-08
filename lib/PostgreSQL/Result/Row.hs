@@ -79,11 +79,15 @@ data ColumnPosition
 -- | Request a column
 --
 -- @since 0.0.0
-data ColumnRequest a = ColumnReqest
+data ColumnRequest a = ColumnReqest -- ^ @since 0.0.0
   { columnRequest_position :: ColumnPosition
   -- ^ Location of the column
+  --
+  -- @since 0.0.0
   , columnRequest_parser :: Column.Column a
   -- ^ Parser for the column
+  --
+  -- @since 0.0.0
   }
   deriving stock Functor
 
@@ -129,6 +133,8 @@ runRow
 runRow (Row run) liftRequest =
   State.evalStateT (run liftRequest) 0
 
+{-# INLINE runRow #-}
+
 -- | Generate a row runner for libpq\'s 'PQ.Result'.
 --
 -- @since 0.0.0
@@ -166,6 +172,8 @@ runRowPq result row = Reader.runReaderT <$> do
       Except.liftEither
         $ first (fmap (CellParserError (ColumnNum col) oid format (RowNum row) value))
         $ Cell.parseCell cell value
+
+{-# INLINE runRowPq #-}
 
 -- | Floating column using the default 'Column.Column' for @a@
 --
