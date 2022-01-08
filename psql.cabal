@@ -48,6 +48,7 @@ library
                     PostgreSQL.Result.Cell
                     PostgreSQL.Result.Class
                     PostgreSQL.Result.Column
+                    PostgreSQL.Result.Row
                     PostgreSQL.Statement
                     PostgreSQL.Types
 

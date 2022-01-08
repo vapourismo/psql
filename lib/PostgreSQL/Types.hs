@@ -19,6 +19,8 @@ module PostgreSQL.Types
   , Error (..)
   , Errors
   , Assembler
+  , ColumnNum (..)
+  , RowNum (..)
   )
 where
 
@@ -105,3 +107,11 @@ type Errors = NonEmpty Error
 -- | Given a number of rows and a way to fetch each row, assemble the result.
 type Assembler row result =
   forall n. (MonadError ProcessorErrors n, Alt n) => PQ.Row -> (PQ.Row -> n row) -> n result
+
+-- | Numberic column identifier
+newtype ColumnNum = ColumnNum Word
+  deriving newtype (Show, Read, Eq, Ord, Enum, Bounded, Num)
+
+-- | Numberic row identifier
+newtype RowNum = RowNum Word
+  deriving newtype (Show, Read, Eq, Ord, Enum, Bounded, Num)
