@@ -6,6 +6,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
@@ -15,6 +16,8 @@
 module PostgreSQL.Result.Row
   ( Row
   , runRow
+  , runRowPq
+
   , ColumnRequest (..)
   , ColumnPosition (..)
 
@@ -38,18 +41,26 @@ module PostgreSQL.Result.Row
 where
 
 import           Control.Applicative (liftA2)
+import           Control.Monad (when)
+import qualified Control.Monad.Except as Except
+import           Control.Monad.IO.Class (MonadIO (liftIO))
+import qualified Control.Monad.Reader as Reader
 import qualified Control.Monad.State.Strict as State
+import           Data.Bifunctor (first)
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as Char8
 import           Data.Data (Proxy (..))
 import           Data.Functor.Apply (Apply (..))
 import           Data.Functor.Identity (Identity (..))
 import           Data.Void (Void)
+import qualified Database.PostgreSQL.LibPQ as PQ
 import qualified GHC.Generics as Generics
 import           GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
 import           GHC.TypeNats (KnownNat, Nat, natVal)
+import qualified PostgreSQL.Result.Cell as Cell
 import qualified PostgreSQL.Result.Column as Column
-import           PostgreSQL.Types (ColumnNum)
+import           PostgreSQL.Types (ColumnNum (..), ProcessorError (..), ProcessorErrors,
+                                   RowNum (..), Value (..))
 
 -- | Position of a column
 --
@@ -107,7 +118,7 @@ instance Applicative Row where
 instance Apply Row where
   (<.>) = (<*>)
 
--- | Translate a 'Row' expression.
+-- | Translate a 'Row' expression. Validate things in @m@ and parse each row in @row@.
 --
 -- @since 0.0.0
 runRow
@@ -117,6 +128,44 @@ runRow
   -> m (row a)
 runRow (Row run) liftRequest =
   State.evalStateT (run liftRequest) 0
+
+-- | Generate a row runner for libpq\'s 'PQ.Result'.
+--
+-- @since 0.0.0
+runRowPq
+  :: (Except.MonadError ProcessorErrors m, MonadIO m)
+  => PQ.Result
+  -> Row a
+  -> m (RowNum -> m a)
+runRowPq result row = Reader.runReaderT <$> do
+  numCols <- liftIO (PQ.nfields result)
+
+  runRow row $ \req -> do
+    col <-
+      case columnRequest_position req of
+        FixedColumn origCol@(ColumnNum col) -> do
+          when (col >= numCols) $
+            Except.throwError [NotEnoughColumns origCol (ColumnNum numCols)]
+
+          pure col
+
+        NamedColumn name -> do
+          mbCol <- liftIO (PQ.fnumber result name)
+          maybe (Except.throwError [MissingNamedColumn name]) pure mbCol
+
+    oid <- liftIO (PQ.ftype result col)
+    format <- liftIO (PQ.fformat result col)
+
+    cell <-
+      Except.liftEither $ first (fmap (ColumnParserError (ColumnNum col) oid format)) $
+        Column.parseColumn (columnRequest_parser req) oid format
+
+    pure $ Reader.ReaderT $ \(RowNum row) -> do
+      valueBare <- liftIO (PQ.getvalue' result row col)
+      let value = maybe Null Value valueBare
+      Except.liftEither
+        $ first (fmap (CellParserError (ColumnNum col) oid format (RowNum row) value))
+        $ Cell.parseCell cell value
 
 -- | Floating column using the default 'Column.Column' for @a@
 --
