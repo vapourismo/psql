@@ -36,8 +36,7 @@ library
                     simpoole >= 0.4.0,
                     template-haskell,
                     text,
-                    vector,
-                    free
+                    vector
   hs-source-dirs:   lib
   exposed-modules:  PostgreSQL
                     PostgreSQL.Class

@@ -29,7 +29,7 @@ import           Control.Monad.Error.Class (MonadError)
 import           Data.ByteString (ByteString)
 import           Data.Functor.Alt (Alt)
 import           Data.List.NonEmpty (NonEmpty)
-import           Data.String (IsString)
+import           Data.String (IsString (..))
 import           Data.Text (Text)
 import qualified Database.PostgreSQL.LibPQ as PQ
 import           Foreign.C.Types (CInt)
@@ -39,6 +39,9 @@ data Value
   = Null
   | Value ByteString
   deriving (Show, Eq, Ord)
+
+instance IsString Value where
+  fromString = Value . fromString
 
 -- | Postgre's regtype
 newtype RegType = RegType
