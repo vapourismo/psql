@@ -11,7 +11,8 @@
 
 -- | Things in this module are used for processing Postgres query result rows.
 module PostgreSQL.Result.Row
-  ( Row
+  ( Row (..)
+  , ColumnPosition (..)
 
     -- * Combinators
   , column
