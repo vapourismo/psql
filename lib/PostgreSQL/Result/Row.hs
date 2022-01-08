@@ -15,7 +15,7 @@
 module PostgreSQL.Result.Row
   ( Row (..)
   , ColumnPosition (..)
-  , ColumnRequest (..)
+  , compileRow
 
     -- * Combinators
   , column
@@ -36,17 +36,23 @@ module PostgreSQL.Result.Row
   )
 where
 
-import           Control.Applicative.Free.Fast (Ap, liftAp)
+import           Control.Applicative.Free.Fast (Ap, liftAp, runAp)
+import           Control.Monad.Except (MonadError, liftEither)
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as Char8
 import           Data.Data (Proxy (..))
+import           Data.Functor.Compose (Compose (..))
 import           Data.Functor.Identity (Identity (..))
+import           Data.List.NonEmpty (NonEmpty)
+import           Data.Text (Text)
 import           Data.Void (Void)
+import           Database.PostgreSQL.LibPQ (Format, Oid)
 import qualified GHC.Generics as Generics
 import           GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
 import           GHC.TypeNats (KnownNat, Nat, natVal)
+import qualified PostgreSQL.Result.Cell as Cell
 import qualified PostgreSQL.Result.Column as Column
-import           PostgreSQL.Types (ColumnNum)
+import           PostgreSQL.Types (ColumnNum, Value)
 
 -- | Position of a column
 --
@@ -57,12 +63,10 @@ data ColumnPosition
   -- left of it.
   --
   -- @since 0.0.0
-
   | FixedColumn ColumnNum
   -- ^ Column is at a fixed index.
   --
   -- @since 0.0.0
-
   | NamedColumn ByteString
   -- ^ Column has a fixed name.
   --
@@ -89,6 +93,26 @@ newtype Row a = Row
     ( Functor -- ^ @since 0.0.0
     , Applicative -- ^ @since 0.0.0
     )
+
+-- | Compile a 'Row' to an @n@ that can produce @a@ by verifying the columns in @m@.
+--
+-- @since 0.0.0
+compileRow
+  :: ( MonadError Column.ParserErrors m
+     , MonadError (NonEmpty Text) n
+     )
+  => Row a
+  -> (ColumnPosition -> m (Oid, Format, n Value))
+  -> m (n a)
+compileRow (Row inner) resolveColPos =
+  getCompose (runAp go inner)
+  where
+    go (ColumnReqest position column) = Compose $ do
+      (oid, format, getCell) <- resolveColPos position
+      cell <- liftEither (Column.parseColumn column oid format)
+      pure $ do
+        value <- getCell
+        liftEither (Cell.parseCell cell value)
 
 -- | Floating column using the default 'Column.Column' for @a@
 --
