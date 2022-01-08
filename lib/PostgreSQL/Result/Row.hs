@@ -1,9 +1,11 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
@@ -13,6 +15,7 @@
 module PostgreSQL.Result.Row
   ( Row (..)
   , ColumnPosition (..)
+  , ColumnRequest (..)
 
     -- * Combinators
   , column
@@ -33,21 +36,17 @@ module PostgreSQL.Result.Row
   )
 where
 
+import           Control.Applicative.Free.Fast (Ap, liftAp)
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as Char8
 import           Data.Data (Proxy (..))
 import           Data.Functor.Identity (Identity (..))
-import           Data.Functor.Product (Product (..))
-import           Data.List.NonEmpty (NonEmpty)
-import           Data.Text (Text)
 import           Data.Void (Void)
-import           Database.PostgreSQL.LibPQ (Format, Oid)
 import qualified GHC.Generics as Generics
 import           GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
 import           GHC.TypeNats (KnownNat, Nat, natVal)
-import qualified PostgreSQL.Result.Cell as Cell
 import qualified PostgreSQL.Result.Column as Column
-import           PostgreSQL.Types (ColumnNum, ParserErrors, Value)
+import           PostgreSQL.Types (ColumnNum)
 
 -- | Position of a column
 --
@@ -70,45 +69,26 @@ data ColumnPosition
   -- @since 0.0.0
   deriving stock (Show, Read, Eq, Ord)
 
+-- | Request a column
+--
+-- @since 0.0.0
+data ColumnRequest a = ColumnReqest
+  { columnRequest_position :: ColumnPosition
+  -- ^ Location of the column
+  , columnRequest_parser :: Column.Column a
+  -- ^ Parser for the column
+  }
+  deriving stock Functor
+
 -- | Result row parser
 --
 -- @since 0.0.0
-data Row a = forall f. (Foldable f, Traversable f) => Row
-  { row_columns :: f ColumnPosition
-  -- ^ Collection of column positions to select
-  , row_validate :: f (Oid, Format) -> Either ParserErrors (f Value -> Either (NonEmpty Text) a)
-  -- ^ Validate the column types and formats. If successful, a function to process a collection
-  -- of cell values (i.e. a row) is returned.
-  }
-
--- | @since 0.0.0
-instance Functor Row where
-  fmap f (Row columns validate) = Row
-    { row_columns = columns
-    , row_validate = fmap (fmap f .) . validate
-    }
-
-  {-# INLINE fmap #-}
-
--- | @since 0.0.0
-instance Applicative Row where
-  pure x = Row
-    { row_columns = Proxy
-    , row_validate = \_ -> Right $ const $ pure x
-    }
-
-  {-# INLINE pure #-}
-
-  Row funReqs funValidate <*> Row paramReqs paramValidate = Row
-    { row_columns = Pair funReqs paramReqs
-    , row_validate = \(Pair funReqs paramReqs) -> do
-        funRun <- funValidate funReqs
-        paramRun <- paramValidate paramReqs
-        pure $ \(Pair funValues paramValues) ->
-          funRun funValues <*> paramRun paramValues
-    }
-
-  {-# INLINE (<*>) #-}
+newtype Row a = Row
+  { unRow :: Ap ColumnRequest a }
+  deriving newtype
+    ( Functor -- ^ @since 0.0.0
+    , Applicative -- ^ @since 0.0.0
+    )
 
 -- | Floating column using the default 'Column.Column' for @a@
 --
@@ -132,11 +112,9 @@ column = columnWith Column.autoColumn
 --
 -- @since 0.0.0
 columnWith :: Column.Column a -> Row a
-columnWith column = Row
-  { row_columns = Identity FloatingColumn
-  , row_validate = \(Identity (oid, format)) -> do
-      cell <- Column.parseColumn column oid format
-      pure (Cell.parseCell cell . runIdentity)
+columnWith column = Row $ liftAp ColumnReqest
+  { columnRequest_position = FloatingColumn
+  , columnRequest_parser = column
   }
 
 {-# INLINE columnWith #-}
@@ -153,11 +131,9 @@ fixedColumn num = fixedColumnWith num Column.autoColumn
 --
 -- @since 0.0.0
 fixedColumnWith :: ColumnNum -> Column.Column a -> Row a
-fixedColumnWith number column = Row
-  { row_columns = Identity (FixedColumn number)
-  , row_validate = \(Identity (oid, format)) -> do
-      cell <- Column.parseColumn column oid format
-      pure (Cell.parseCell cell . runIdentity)
+fixedColumnWith number column = Row $ liftAp ColumnReqest
+  { columnRequest_position = FixedColumn number
+  , columnRequest_parser = column
   }
 
 {-# INLINE fixedColumnWith #-}
@@ -174,11 +150,9 @@ namedColumn name = namedColumnWith name Column.autoColumn
 --
 -- @since 0.0.0
 namedColumnWith :: ByteString -> Column.Column a -> Row a
-namedColumnWith name column = Row
-  { row_columns = Identity (NamedColumn name)
-  , row_validate = \(Identity (oid, format)) -> do
-      cell <- Column.parseColumn column oid format
-      pure (Cell.parseCell cell . runIdentity)
+namedColumnWith name column = Row $ liftAp ColumnReqest
+  { columnRequest_position = NamedColumn name
+  , columnRequest_parser = column
   }
 
 {-# INLINE namedColumnWith #-}
