@@ -27,10 +27,6 @@ module PostgreSQL.Result.Column
     -- * Class
   , AutoColumn (..)
 
-    -- * Errors
-  , ParserError (..)
-  , ParserErrors
-
     -- * Helpers
   , Readable (..)
   , RawValue (..)

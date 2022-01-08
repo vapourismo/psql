@@ -1,272 +1,141 @@
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE RankNTypes #-}
 
 module PostgreSQL.Result
-  ( -- * Combinators
-    Processor
-  , column
-  , columnWith
-  , namedColumn
-  , namedColumnWith
+  ( Result
+  , runResultPq
 
-    -- * Evaluation
-  , runProcessor
-  , ProcessorError (..)
-  , ProcessorErrors
-
-    -- * Class
-  , Class.HasResult (..)
-  , ResultT (..)
-  , runResultT
+    -- * Combinators
+  , ignored
+  , single
+  , first
+  , many
+  , affectedRows
 
     -- * Validation
-  , ResultError (..)
-  , ResultErrors
   , checkForError
   )
 where
 
-import           Control.Applicative (liftA2)
 import           Control.Monad (when)
 import qualified Control.Monad.Except as Except
 import           Control.Monad.IO.Class (MonadIO, liftIO)
-import qualified Control.Monad.Reader as Reader
-import qualified Control.Monad.State.Strict as State
-import           Data.Bifunctor (first)
+import qualified Data.Bifunctor as Bifunctor
 import qualified Data.ByteString as ByteString
 import           Data.Foldable (for_)
-import           Data.Functor.Alt (Alt (..))
 import           Data.Maybe (fromMaybe)
+import qualified Data.Text as Text
+import           Data.Text.Encoding (decodeUtf8')
+import qualified Data.Vector as Vector
 import qualified Database.PostgreSQL.LibPQ as PQ
-import qualified PostgreSQL.Result.Cell as Cell
-import qualified PostgreSQL.Result.Class as Class
-import qualified PostgreSQL.Result.Column as Column
-import           PostgreSQL.Types (ColumnNum (..), ProcessorError (..), ProcessorErrors,
-                                   ResultError (..), ResultErrors, RowNum (..), Value (..))
+import qualified PostgreSQL.Result.Row as Row
+import qualified PostgreSQL.Types as Types
+import           Text.Read (readEither)
 
----
+data ResultF a where
+  IgnoreResult :: ResultF ()
 
-type ProcessorImpl m = (Except.MonadError ProcessorErrors m, Alt m, Class.HasResult m)
+  SingleRow :: Row.Row a -> ResultF a
 
-data ProcessorState = ProcessorState
-  { processorState_nextColumn :: ColumnNum
-  , processorState_numColumns :: ColumnNum
-  }
+  FirstRow :: Row.Row a -> ResultF a
 
--- | Result processor
+  ManyRows :: Row.Row a -> ResultF (Vector.Vector a)
+
+  AffectedRows :: ResultF Integer
+
+-- | Query result
 --
--- Imagine you have an SQL query like @SELECT bar, baz FROM foo@. The query result is a table with
--- two columns: @bar@ and @baz@. Lets say @bar@ is of type @integer@ and @baz@ is of type @text@.
+-- @since 0.0.0
+data Result a where
+  Result :: (b -> a) -> ResultF b -> Result a
+
+-- | @since 0.0.0
+instance Functor Result where
+  fmap f (Result g inner) = Result (f . g) inner
+
+  {-# INLINE fmap #-}
+
+-- | Process libpq's 'PQ.Result'.
 --
--- You can write the following 'Processor' to describe the result processor for the above query
--- result.
+-- @since 0.0.0
+runResultPq :: MonadIO m => PQ.Result -> Result a -> m (Either Types.Errors a)
+runResultPq result (Result f basis) = Except.runExceptT $ fmap f $
+  case basis of
+    IgnoreResult ->
+      pure ()
+
+    SingleRow row -> do
+      rows <- liftIO (PQ.ntuples result)
+      when (rows /= 1) $
+        Except.throwError [Types.ErrorDuringValidation $ Types.MultipleRows $ Types.RowNum rows]
+      runRow <- importErrors (Row.runRowPq result row)
+      importErrors (runRow 0)
+
+    FirstRow row -> do
+      rows <- liftIO (PQ.ntuples result)
+      when (rows < 1) $ Except.throwError [Types.ErrorDuringValidation Types.NoRows]
+      runRow <- importErrors (Row.runRowPq result row)
+      importErrors (runRow 0)
+
+    ManyRows row -> do
+      runRow <- importErrors (Row.runRowPq result row)
+      PQ.Row rows <- liftIO (PQ.ntuples result)
+      Vector.generateM (fromIntegral rows) (importErrors . runRow . fromIntegral)
+
+    AffectedRows -> do
+      tuples <- liftIO (PQ.cmdTuples result)
+      case tuples of
+        Nothing -> pure 0
+        Just tuples ->
+          Except.liftEither
+          $ Bifunctor.first
+            (pure . Types.ErrorDuringValidation . Types.FailedToParseAffectedRows . Text.pack)
+          $ do
+            tuples <- Bifunctor.first show (decodeUtf8' tuples)
+            readEither (Text.unpack tuples)
+  where
+    importErrors = Except.withExceptT (fmap Types.ErrorDuringProcessing)
+
+
+-- | Ignore the result set.
 --
--- > data Foo = Foo Int Text
--- >
--- > result :: Processor Foo
--- > result = Foo <$> column <*> column
+-- @since 0.0.0
+ignored :: Result ()
+ignored = Result id IgnoreResult
+
+-- | Process exactly 1 row.
 --
-newtype Processor a = Processor
-  { _unProcessor :: forall m. ProcessorImpl m => State.StateT ProcessorState m (m (RowNum -> m a)) }
-  deriving stock Functor
+-- @since 0.0.0
+single :: Row.Row a -> Result a
+single row = Result id (SingleRow row)
 
-instance Applicative Processor where
-  pure x = Processor $ pure $ pure $ pure $ pure x
+-- | Process only the first row. There may be more rows in the result set, but they won't be
+-- touched.
+--
+-- @since 0.0.0
+first :: Row.Row a -> Result a
+first row = Result id (FirstRow row)
 
-  {-# INLINE pure #-}
+-- | Process 0 or more rows.
+--
+-- @since 0.0.0
+many :: Row.Row a -> Result (Vector.Vector a)
+many row = Result id (ManyRows row)
 
-  Processor lhs <*> Processor rhs = Processor $
-    liftA2 (liftA2 (liftA2 (<*>))) lhs rhs
 
-  {-# INLINE (<*>) #-}
-
-instance Alt Processor where
-  Processor lhs <!> Processor rhs = Processor $
-    liftA2 (<!>) lhs rhs
-
-  {-# INLINE (<!>) #-}
-
--- | Validate the query result as much as possible and then hand off the return type assembly to the
--- given function.
-runProcessor
-  :: (Except.MonadError ProcessorErrors m, Alt m, Class.HasResult m)
-  => Processor a
-  -- ^ Result processor
-  -> (RowNum -> (RowNum -> m a) -> m b)
-  -- ^ This function is given the number of rows and an action to retrieve each row.
-  -> m b
-runProcessor (Processor parseColumn) return = do
-  (parseRow, ProcessorState _ wantColumns) <- State.runStateT parseColumn (ProcessorState 0 0)
-
-  columns <- Class.numColumns
-  when (columns < wantColumns) $
-    Except.throwError $ pure NotEnoughColumns
-      { processorError_haveColumns = columns
-      , processorError_wantedColumns = wantColumns
-      }
-
-  -- This part is purposely run after we've verified that enough columns are available.
-  -- Otherwise we might run into errors with methods from 'Class.HasResult' that expect a certain
-  -- number of columns to be there.
-  parseRow <- parseRow
-
-  rows <- Class.numRows
-  return rows parseRow
-
-{-# INLINE runProcessor #-}
-
--- | Create a row processor for a column.
-makeRowProcessor
-  :: ( Class.HasResult m
-     , Except.MonadError ProcessorErrors m
-     )
-  => Column.Column a
-  -- ^ Column parser
-  -> ColumnNum
-  -- ^ Column to process
-  -> m (RowNum -> m a)
-makeRowProcessor (Column.Column withColumn) column = do
-  typ <- Class.columnType column
-  format <- Class.columnFormat column
-
-  Cell.Cell parseCell <-
-    Except.liftEither $ first (fmap (ColumnParserError column typ format)) $ withColumn typ format
-
-  pure $ \row -> do
-    value <- Class.cellValue column row
-
-    let toFieldParserErrors = fmap (CellParserError column typ format row value)
-    Except.liftEither $ first toFieldParserErrors $ parseCell value
-
-{-# INLINE makeRowProcessor #-}
-
--- | Process a column with the given parser.
-columnWith
-  :: Column.Column a
-  -- ^ Column parser
-  -> Processor a
-columnWith parser = Processor $ do
-  column <- State.state $ \column ->
-    let
-      selectedColumn = processorState_nextColumn column
-    in
-      ( selectedColumn
-      , ProcessorState
-        { processorState_nextColumn = selectedColumn + 1
-        , processorState_numColumns = max (selectedColumn + 1) (processorState_numColumns column)
-        }
-      )
-
-  pure $ makeRowProcessor parser column
-
-{-# INLINE columnWith #-}
-
--- | Process a column. This is equivalent to 'columnWith' in conjunction with 'Column.autoColumn'.
-column
-  :: Column.AutoColumn a
-  => Processor a
-column =
-  columnWith Column.autoColumn
-
-{-# INLINE column #-}
-
--- | Process a named column with the given parser. Named columns do not advance the current column
--- cursor - they don't interfere with 'column' and 'columnWith'.
-namedColumnWith
-  :: ByteString.ByteString
-  -- ^ Column name
-  -> Column.Column a
-  -- ^ Column parser
-  -> Processor a
-namedColumnWith columnName parser = Processor $ do
-  column <- do
-    mbColumn <- Class.columnFromName columnName
-    case mbColumn of
-      Just column -> pure column
-      Nothing -> Except.throwError [MissingNamedColumn columnName]
-
-  State.modify $ \procState -> procState
-    { processorState_numColumns = max (column + 1) (processorState_numColumns procState) }
-
-  pure $ makeRowProcessor parser column
-
-{-# INLINE namedColumnWith #-}
-
--- | Process a column. Named columns do not advance the current column cursor - they don't interfere
--- with 'column' and 'columnWith'.
-namedColumn
-  :: Column.AutoColumn a
-  => ByteString.ByteString
-  -- ^ Column name
-  -> Processor a
-namedColumn columnName =
-  namedColumnWith columnName Column.autoColumn
-
-{-# INLINE namedColumn #-}
-
----
-
--- | Implementation for 'Result.HasResult' that delegates to @postgresql-libpq@
-newtype ResultT m a = ResultT
-  { _unResultT :: Reader.ReaderT PQ.Result m a }
-  deriving newtype
-    ( Functor
-    , Applicative
-    , Monad
-    , Except.MonadError e
-    )
-
-instance Alt m => Alt (ResultT m) where
-  ResultT lhs <!> ResultT rhs = ResultT $ lhs <!> rhs
-
-  {-# INLINE (<!>) #-}
-
-instance MonadIO m => Class.HasResult (ResultT m) where
-  numColumns = ResultT $ Reader.ReaderT $ \result ->
-    liftIO $ fmap ColumnNum $ PQ.nfields result
-
-  {-# INLINE numColumns #-}
-
-  numRows = ResultT $ Reader.ReaderT $ \result ->
-    liftIO $ fmap RowNum $ PQ.ntuples result
-
-  {-# INLINE numRows #-}
-
-  columnType col = ResultT $ Reader.ReaderT $ \result ->
-    liftIO $ PQ.ftype result $ fromColumnNum col
-
-  {-# INLINE columnType #-}
-
-  columnFormat col = ResultT $ Reader.ReaderT $ \result ->
-    liftIO $ PQ.fformat result $ fromColumnNum col
-
-  {-# INLINE columnFormat #-}
-
-  cellValue col row = ResultT $ Reader.ReaderT $ \result ->
-    liftIO $ maybe Null Value <$> PQ.getvalue' result (fromRowNum row) (fromColumnNum col)
-
-  {-# INLINE cellValue #-}
-
-  columnFromName name = ResultT $ Reader.ReaderT $ \result ->
-    liftIO $ fmap ColumnNum <$> PQ.fnumber result name
-
-  {-# INLINE columnFromName #-}
-
-runResultT :: PQ.Result -> ResultT m a -> m a
-runResultT result (ResultT action) = Reader.runReaderT action result
-
-{-# INLINE runResultT #-}
+-- | Get the number of affected rows.
+--
+-- @since 0.0.0
+affectedRows :: Result Integer
+affectedRows = Result id AffectedRows
 
 ---
 
 -- | Check the result, if any, and the connection for errors.
 checkForError
-  :: (MonadIO m, Except.MonadError ResultErrors m)
+  :: (MonadIO m, Except.MonadError Types.ResultErrors m)
   => PQ.Connection
   -> Maybe PQ.Result
   -> m PQ.Result
@@ -275,14 +144,14 @@ checkForError conn mbResult = do
     case mbResult of
       Nothing -> do
         connError <- liftIO $ PQ.errorMessage conn
-        Except.throwError [ResultError (fromMaybe mempty connError)]
+        Except.throwError [Types.BadResultStatus (fromMaybe mempty connError)]
 
       Just result -> pure result
 
   resultError <- liftIO $ PQ.resultErrorMessage result
   for_ resultError $ \error ->
     when (ByteString.length error > 0) $
-      Except.throwError [ResultError error]
+      Except.throwError [Types.BadResultStatus error]
 
   pure result
 

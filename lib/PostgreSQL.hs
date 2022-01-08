@@ -18,16 +18,10 @@ module PostgreSQL
   , Query.execute
   , Query.execute_
   , Query.query
-  , Query.queryCustom
   , Query.queryWith
-  , Query.queryCustomWith
 
     -- ** Preparation
   , Query.withPreparedStatement
-
-    -- ** Results
-  , Query.QueryResult (..)
-  , Query.genericQueryProcessor
 
     -- ** Evaluation
   , Query.Query
@@ -51,32 +45,38 @@ module PostgreSQL
   , Statement.renderTemplate
 
     -- * Result processing
-  , Result.Processor
-  , Result.column
-  , Result.columnWith
-  , Result.namedColumn
-  , Result.namedColumnWith
+  , Result.Result
+  , Result.ignored
+  , Result.single
+  , Result.first
+  , Result.many
+  , Result.affectedRows
+
+    -- ** Rows
+  , Row.AutoRow (..)
+  , Row.genericRow
 
     -- ** Columns
   , Column.AutoColumn (..)
+  , Column.Readable (..)
 
     -- * Errors
-  , Error (..)
-  , Errors
-  , Result.ProcessorError (..)
-  , Result.ProcessorErrors
-  , Result.ResultError (..)
-  , Result.ResultErrors
-  , Column.ParserError (..)
-  , Column.ParserErrors
+  , Types.Error (..)
+  , Types.Errors
+  , Types.ProcessorError (..)
+  , Types.ProcessorErrors
+  , Types.ResultError (..)
+  , Types.ResultErrors
+  , Types.ParserError (..)
+  , Types.ParserErrors
 
     -- * Common types
   , PQ.Format (..)
   , PQ.Oid
-  , PQ.Column
-  , PQ.Row
+  , Types.ColumnNum
+  , Types.RowNum
+  , Types.Value (..)
   , Column.RawValue (..)
-  , Assembler
   )
 where
 
@@ -86,5 +86,6 @@ import qualified PostgreSQL.ConnectionPool as ConnectionPool
 import qualified PostgreSQL.Query as Query
 import qualified PostgreSQL.Result as Result
 import qualified PostgreSQL.Result.Column as Column
+import qualified PostgreSQL.Result.Row as Row
 import qualified PostgreSQL.Statement as Statement
-import           PostgreSQL.Types (Assembler, Error (..), Errors)
+import qualified PostgreSQL.Types as Types

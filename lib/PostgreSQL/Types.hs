@@ -18,16 +18,13 @@ module PostgreSQL.Types
   , ResultErrors
   , Error (..)
   , Errors
-  , Assembler
   , ColumnNum (..)
   , RowNum (..)
   )
 where
 
 import           Control.Exception (Exception)
-import           Control.Monad.Error.Class (MonadError)
 import           Data.ByteString (ByteString)
-import           Data.Functor.Alt (Alt)
 import           Data.List.NonEmpty (NonEmpty)
 import           Data.String (IsString (..))
 import           Data.Text (Text)
@@ -92,9 +89,15 @@ data ProcessorError
 type ProcessorErrors = NonEmpty ProcessorError
 
 -- | Error that occurs when validating the result
-newtype ResultError = ResultError
-  { unResultError :: ByteString }
-  deriving (Show, Eq, Ord)
+data ResultError
+  = BadResultStatus
+    { resultError_status :: ByteString }
+  | NoRows
+  | MultipleRows
+    { resultError_numRows :: RowNum }
+  | FailedToParseAffectedRows
+    { resultError_message :: Text }
+  deriving stock (Show, Eq, Ord)
 
 type ResultErrors = NonEmpty ResultError
 
@@ -107,10 +110,6 @@ data Error
   deriving anyclass Exception
 
 type Errors = NonEmpty Error
-
--- | Given a number of rows and a way to fetch each row, assemble the result.
-type Assembler row result =
-  forall n. (MonadError ProcessorErrors n, Alt n) => RowNum -> (RowNum -> n row) -> n result
 
 -- | Numberic column identifier
 newtype ColumnNum = ColumnNum

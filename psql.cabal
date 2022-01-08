@@ -46,7 +46,6 @@ library
                     PostgreSQL.Query.Class
                     PostgreSQL.Result
                     PostgreSQL.Result.Cell
-                    PostgreSQL.Result.Class
                     PostgreSQL.Result.Column
                     PostgreSQL.Result.Row
                     PostgreSQL.Statement
@@ -72,5 +71,4 @@ test-suite psql-tests
                     massiv
   hs-source-dirs:   test
   main-is:          Main.hs
-  other-modules:    PostgreSQL.ResultSpec
-                    PostgreSQL.Result.RowSpec
+  other-modules:    PostgreSQL.Result.RowSpec

@@ -11,7 +11,6 @@ where
 import           Data.Kind (Type)
 import qualified PostgreSQL.Result as Result
 import qualified PostgreSQL.Statement as Statement
-import           PostgreSQL.Types (Assembler)
 
 -- | PostgreSQL query
 class Monad query => Query query where
@@ -46,11 +45,9 @@ class Monad query => Query query where
   processResult
     :: Result query
     -- ^ Result
-    -> Result.Processor row
+    -> Result.Result a
     -- ^ Result processor
-    -> Assembler row result
-    -- ^ Assemble the result
-    -> query result
+    -> query a
 
 -- | @statement@ is an executable statement.
 class Executable statement where

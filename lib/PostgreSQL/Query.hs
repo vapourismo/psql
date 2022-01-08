@@ -15,16 +15,10 @@ module PostgreSQL.Query
     Class.execute
   , execute_
   , query
-  , queryCustom
   , queryWith
-  , queryCustomWith
 
     -- * Statement preparation
   , Class.withPreparedStatement
-
-    -- * Results
-  , QueryResult (..)
-  , genericQueryProcessor
 
     -- * Classes
   , Class.Query
@@ -48,19 +42,16 @@ import           Data.Functor (void)
 import           Data.Functor.Alt (Alt (..))
 import           Data.Functor.Apply (Apply)
 import           Data.Functor.Bind (Bind (..))
-import           Data.Functor.Identity (Identity (..))
 import qualified Data.List.NonEmpty as NonEmpty
 import           Data.Text.Encoding (decodeUtf8)
 import qualified Data.Vector as Vector
-import           Data.Void (Void)
 import qualified Database.PostgreSQL.LibPQ as PQ
-import qualified GHC.Generics as Generics
 import qualified PostgreSQL.Param as Param
 import qualified PostgreSQL.Query.Class as Class
 import qualified PostgreSQL.Result as Result
-import qualified PostgreSQL.Result.Column as Column
+import qualified PostgreSQL.Result.Row as Row
 import qualified PostgreSQL.Statement as Statement
-import           PostgreSQL.Types (Assembler, Error (..), Errors, RowNum)
+import           PostgreSQL.Types (Error (..), Errors)
 
 ---
 
@@ -77,190 +68,34 @@ execute_ statement param =
 
 {-# INLINE execute_ #-}
 
-buildVector
-  :: Monad m
-  => RowNum
-  -> (RowNum -> m a)
-  -> m (Vector.Vector a)
-buildVector row mkRow =
-  Vector.generateM (fromIntegral row) (mkRow . fromIntegral)
-
-{-# INLINE buildVector #-}
-
 -- | Perform a parameterized query.
 query
-  :: (Class.Executable statement, Class.Query query, QueryResult row)
+  :: (Class.Executable statement, Class.Query query, Row.AutoRow row)
   => statement param
   -- ^ Query statement
   -> param
   -- ^ Query parameter
   -> query (Vector.Vector row)
 query statement input =
-  queryWith statement input queryProcessor
+  queryWith statement input (Result.many Row.autoRow)
 
 {-# INLINE query #-}
 
--- | Perform a parameterized query. This also lets you specify the row processor explicitly.
+-- | Perform a parameterized query. This also lets you specify the result processor explicitly.
 queryWith
   :: (Class.Executable statement, Class.Query query)
   => statement param
   -- ^ Query statement
   -> param
   -- ^ Query parameter
-  -> Result.Processor row
+  -> Result.Result row
   -- ^ Result row processor
-  -> query (Vector.Vector row)
-queryWith statement input resultProcessor =
-  queryCustomWith statement input resultProcessor buildVector
+  -> query row
+queryWith statement input resultProcessor = do
+  result <- Class.execute statement input
+  Class.processResult result resultProcessor
 
 {-# INLINE queryWith #-}
-
--- | Perform a parameterized query with a custom function to build the result type.
-queryCustom
-  :: (Class.Executable statement, Class.Query query, QueryResult row)
-  => statement param
-  -- ^ Query statement
-  -> param
-  -- ^ Query parameter
-  -> Assembler row result
-  -- ^ Given a number of rows and a way to fetch each row, assemble the result.
-  -> query result
-queryCustom statement input =
-  queryCustomWith statement input queryProcessor
-
-{-# INLINE queryCustom #-}
-
--- | Perform a parameterized query with a custom function to build the result type. This also lets
--- you specify the row processor explicitly.
-queryCustomWith
-  :: (Class.Executable statement, Class.Query query)
-  => statement param
-  -- ^ Query statement
-  -> param
-  -- ^ Query parameter
-  -> Result.Processor row
-  -- ^ Result row processor
-  -> Assembler row result
-  -- ^ Given a number of rows and a way to fetch each row, assemble the result.
-  -> query result
-queryCustomWith statement input resultProcessor f = do
-  result <- Class.execute statement input
-  Class.processResult result resultProcessor f
-
-{-# INLINE queryCustomWith #-}
-
----
-
--- | @a@ is the result of a query
-class QueryResult a where
-  queryProcessor :: Result.Processor a
-
-  default queryProcessor
-    :: (Generics.Generic a, QueryResult (Generics.Rep a Void))
-    => Result.Processor a
-  queryProcessor =
-    genericQueryProcessor
-
-  {-# INLINE queryProcessor #-}
-
--- | Does process anything.
-instance QueryResult () where
-  queryProcessor = pure ()
-
-instance Column.AutoColumn a => QueryResult (Identity a) where
-  queryProcessor = fmap Identity Result.column
-
-  {-# INLINE queryProcessor #-}
-
-instance
-  ( Column.AutoColumn a
-  , Column.AutoColumn b
-  )
-  => QueryResult (a, b)
-
-instance
-  ( Column.AutoColumn a
-  , Column.AutoColumn b
-  , Column.AutoColumn c
-  )
-  => QueryResult (a, b, c)
-
-instance
-  ( Column.AutoColumn a
-  , Column.AutoColumn b
-  , Column.AutoColumn c
-  , Column.AutoColumn d
-  )
-  => QueryResult (a, b, c, d)
-
-instance
-  ( Column.AutoColumn a
-  , Column.AutoColumn b
-  , Column.AutoColumn c
-  , Column.AutoColumn d
-  , Column.AutoColumn e
-  )
-  => QueryResult (a, b, c, d, e)
-
-instance
-  ( Column.AutoColumn a
-  , Column.AutoColumn b
-  , Column.AutoColumn c
-  , Column.AutoColumn d
-  , Column.AutoColumn e
-  , Column.AutoColumn f
-  )
-  => QueryResult (a, b, c, d, e, f)
-
-instance
-  ( Column.AutoColumn a
-  , Column.AutoColumn b
-  , Column.AutoColumn c
-  , Column.AutoColumn d
-  , Column.AutoColumn e
-  , Column.AutoColumn f
-  , Column.AutoColumn g
-  )
-  => QueryResult (a, b, c, d, e, f, g)
-
----
-
-instance Column.AutoColumn a => QueryResult (Generics.K1 tag a x) where
-  queryProcessor = Generics.K1 <$> Result.column
-
-  {-# INLINE queryProcessor #-}
-
-instance QueryResult (f x) => QueryResult (Generics.M1 tag meta f x) where
-  queryProcessor = Generics.M1 <$> queryProcessor
-
-  {-# INLINE queryProcessor #-}
-
-instance (QueryResult (lhs x), QueryResult (rhs x)) => QueryResult ((Generics.:*:) lhs rhs x) where
-  queryProcessor = (Generics.:*:) <$> queryProcessor <*> queryProcessor
-
-  {-# INLINE queryProcessor #-}
-
--- | 'QueryResult' implementation for @a@ using GHC generics
---
--- Note, this only supports product types. Fields of the product type will effectively be combined
--- with 'Result.column' from left to right.
---
--- Consider the following type.
---
--- > data MyFoo = MyFoo Int String
---
--- The 'Result.Processor' generated from 'genericQueryProcessor' is identical to this:
---
--- > MyFoo <$> column <*> column
---
---
-genericQueryProcessor
-  :: (Generics.Generic a, QueryResult (Generics.Rep a Void))
-  => Result.Processor a
-genericQueryProcessor =
-  Generics.to @_ @Void <$> queryProcessor
-
-{-# INLINE genericQueryProcessor #-}
 
 ---
 
@@ -383,11 +218,10 @@ instance (MonadIO m, MonadMask m) => Class.Query (QueryT m) where
 
   {-# INLINE executePreparedStatement #-}
 
-  processResult result processor f = QueryT
+  processResult result processor = QueryT
     $ Reader.lift
-    $ Except.withExceptT (fmap ErrorDuringProcessing)
-    $ Result.runResultT result
-    $ Result.runProcessor processor f
+    $ Except.ExceptT
+    $ Result.runResultPq result processor
 
   {-# INLINE processResult #-}
 
