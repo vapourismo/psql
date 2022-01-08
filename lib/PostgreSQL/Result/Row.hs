@@ -5,17 +5,18 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Things in this module are used for processing Postgres query result rows.
 module PostgreSQL.Result.Row
-  ( Row (..)
+  ( Row
+  , runRow
+  , ColumnRequest (..)
   , ColumnPosition (..)
-  , compileRow
 
     -- * Combinators
   , column
@@ -36,34 +37,25 @@ module PostgreSQL.Result.Row
   )
 where
 
-import           Control.Applicative.Free.Fast (Ap, liftAp, runAp)
-import           Control.Monad.Except (MonadError, liftEither)
+import           Control.Applicative (liftA2)
+import qualified Control.Monad.State.Strict as State
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as Char8
 import           Data.Data (Proxy (..))
-import           Data.Functor.Compose (Compose (..))
+import           Data.Functor.Apply (Apply (..))
 import           Data.Functor.Identity (Identity (..))
-import           Data.List.NonEmpty (NonEmpty)
-import           Data.Text (Text)
 import           Data.Void (Void)
-import           Database.PostgreSQL.LibPQ (Format, Oid)
 import qualified GHC.Generics as Generics
 import           GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
 import           GHC.TypeNats (KnownNat, Nat, natVal)
-import qualified PostgreSQL.Result.Cell as Cell
 import qualified PostgreSQL.Result.Column as Column
-import           PostgreSQL.Types (ColumnNum, Value)
+import           PostgreSQL.Types (ColumnNum)
 
 -- | Position of a column
 --
 -- @since 0.0.0
 data ColumnPosition
-  = FloatingColumn
-  -- ^ The column location is dynamic. Its ultimate index depends on how many floating columns are
-  -- left of it.
-  --
-  -- @since 0.0.0
-  | FixedColumn ColumnNum
+  = FixedColumn ColumnNum
   -- ^ Column is at a fixed index.
   --
   -- @since 0.0.0
@@ -88,31 +80,43 @@ data ColumnRequest a = ColumnReqest
 --
 -- @since 0.0.0
 newtype Row a = Row
-  { unRow :: Ap ColumnRequest a }
-  deriving newtype
-    ( Functor -- ^ @since 0.0.0
-    , Applicative -- ^ @since 0.0.0
-    )
+  { _unRow
+      :: forall m row
+      .  (Monad m, Applicative row)
+      => (forall x. ColumnRequest x -> m (row x))
+      -> State.StateT ColumnNum m (row a)
+  }
 
--- | Compile a 'Row' to an @n@ that can produce @a@ by verifying the columns in @m@.
+-- | @since 0.0.0
+instance Functor Row where
+  fmap f (Row run) = Row (\liftRequest -> fmap f <$> run liftRequest)
+
+  {-# INLINE fmap #-}
+
+-- | @since 0.0.0
+instance Applicative Row where
+  pure x = Row $ \_liftRequest -> pure $ pure x
+
+  {-# INLINE pure #-}
+
+  Row f <*> Row x = Row $ \liftRequest -> liftA2 (<*>) (f liftRequest) (x liftRequest)
+
+  {-# INLINE (<*>) #-}
+
+-- | @since 0.0.0
+instance Apply Row where
+  (<.>) = (<*>)
+
+-- | Translate a 'Row' expression.
 --
 -- @since 0.0.0
-compileRow
-  :: ( MonadError Column.ParserErrors m
-     , MonadError (NonEmpty Text) n
-     )
+runRow
+  :: (Monad m, Applicative row)
   => Row a
-  -> (ColumnPosition -> m (Oid, Format, n Value))
-  -> m (n a)
-compileRow (Row inner) resolveColPos =
-  getCompose (runAp go inner)
-  where
-    go (ColumnReqest position column) = Compose $ do
-      (oid, format, getCell) <- resolveColPos position
-      cell <- liftEither (Column.parseColumn column oid format)
-      pure $ do
-        value <- getCell
-        liftEither (Cell.parseCell cell value)
+  -> (forall x. ColumnRequest x -> m (row x))
+  -> m (row a)
+runRow (Row run) liftRequest =
+  State.evalStateT (run liftRequest) 0
 
 -- | Floating column using the default 'Column.Column' for @a@
 --
@@ -136,10 +140,12 @@ column = columnWith Column.autoColumn
 --
 -- @since 0.0.0
 columnWith :: Column.Column a -> Row a
-columnWith column = Row $ liftAp ColumnReqest
-  { columnRequest_position = FloatingColumn
-  , columnRequest_parser = column
-  }
+columnWith column = Row $ \liftRequest -> do
+  col <- State.state (\col -> (col, col + 1))
+  State.lift $ liftRequest ColumnReqest
+    { columnRequest_position = FixedColumn col
+    , columnRequest_parser = column
+    }
 
 {-# INLINE columnWith #-}
 
@@ -155,10 +161,11 @@ fixedColumn num = fixedColumnWith num Column.autoColumn
 --
 -- @since 0.0.0
 fixedColumnWith :: ColumnNum -> Column.Column a -> Row a
-fixedColumnWith number column = Row $ liftAp ColumnReqest
-  { columnRequest_position = FixedColumn number
-  , columnRequest_parser = column
-  }
+fixedColumnWith number column = Row $ \liftRequest -> State.lift $
+  liftRequest ColumnReqest
+    { columnRequest_position = FixedColumn number
+    , columnRequest_parser = column
+    }
 
 {-# INLINE fixedColumnWith #-}
 
@@ -174,10 +181,11 @@ namedColumn name = namedColumnWith name Column.autoColumn
 --
 -- @since 0.0.0
 namedColumnWith :: ByteString -> Column.Column a -> Row a
-namedColumnWith name column = Row $ liftAp ColumnReqest
-  { columnRequest_position = NamedColumn name
-  , columnRequest_parser = column
-  }
+namedColumnWith name column = Row $ \liftRequest -> State.lift $
+  liftRequest ColumnReqest
+    { columnRequest_position = NamedColumn name
+    , columnRequest_parser = column
+    }
 
 {-# INLINE namedColumnWith #-}
 
