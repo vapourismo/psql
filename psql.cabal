@@ -68,7 +68,9 @@ test-suite psql-tests
                     semigroupoids,
                     sop-core,
                     unordered-containers,
-                    vector
+                    vector,
+                    massiv
   hs-source-dirs:   test
   main-is:          Main.hs
   other-modules:    PostgreSQL.ResultSpec
+                    PostgreSQL.Result.RowSpec
