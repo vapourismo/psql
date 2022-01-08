@@ -13,11 +13,17 @@ import qualified PostgreSQL.Result as Result
 import qualified PostgreSQL.Statement as Statement
 
 -- | PostgreSQL query
+--
+-- @since 0.0.0
 class Monad query => Query query where
   -- | Query result
+  --
+  -- @since 0.0.0
   type Result query :: Type
 
   -- | Execute a statement.
+  --
+  -- @since 0.0.0
   executeStatement
     :: Statement.Statement a
     -- ^ Statement
@@ -26,6 +32,8 @@ class Monad query => Query query where
     -> query (Result query)
 
   -- | Execute a previously prepared statement.
+  --
+  -- @since 0.0.0
   executePreparedStatement
     :: Statement.PreparedStatement a
     -- ^ Prepared statement
@@ -34,6 +42,8 @@ class Monad query => Query query where
     -> query (Result query)
 
   -- | Prepare a statement. The prepared statement is only valid within the provided continuation.
+  --
+  -- @since 0.0.0
   withPreparedStatement
     :: Statement.Statement a
     -- ^ Statement to prepare
@@ -42,6 +52,8 @@ class Monad query => Query query where
     -> query r
 
   -- | Process the result object.
+  --
+  -- @since 0.0.0
   processResult
     :: Result query
     -- ^ Result
@@ -50,8 +62,12 @@ class Monad query => Query query where
     -> query a
 
 -- | @statement@ is an executable statement.
+--
+-- @since 0.0.0
 class Executable statement where
   -- | Execute a statement.
+  --
+  -- @since 0.0.0
   execute
     :: Query query
     => statement param
@@ -60,11 +76,13 @@ class Executable statement where
     -- ^ Statement input
     -> query (Result query)
 
+-- | @since 0.0.0
 instance Executable Statement.Statement where
   execute = executeStatement
 
   {-# INLINE execute #-}
 
+-- | @since 0.0.0
 instance Executable Statement.PreparedStatement where
   execute = executePreparedStatement
 

@@ -37,23 +37,25 @@ import qualified Simpoole.Monad.Internal as Pool.Monad
 newtype ConnectionPoolT m a = ConnectionPoolT
   { unConnectionPoolT :: Pool.Monad.PoolT PQ.Connection m a }
   deriving newtype
-    ( Functor
-    , Applicative
-    , Monad
-    , MonadFail
-    , MonadIO
-    , MonadState s
-    , Except.MonadError e
-    , MonadWriter w
-    , Catch.MonadThrow
-    , Catch.MonadCatch
-    , Catch.MonadMask
-    , MonadConc
+    ( Functor -- ^ @since 0.0.0
+    , Applicative -- ^ @since 0.0.0
+    , Monad -- ^ @since 0.0.0
+    , MonadFail -- ^ @since 0.0.0
+    , MonadIO -- ^ @since 0.0.0
+    , MonadState s -- ^ @since 0.0.0
+    , Except.MonadError e -- ^ @since 0.0.0
+    , MonadWriter w -- ^ @since 0.0.0
+    , Catch.MonadThrow -- ^ @since 0.0.0
+    , Catch.MonadCatch -- ^ @since 0.0.0
+    , Catch.MonadMask -- ^ @since 0.0.0
+    , MonadConc -- ^ @since 0.0.0
     )
 
+-- | @since 0.0.0
 instance MonadTrans ConnectionPoolT where
   lift = ConnectionPoolT . Reader.lift
 
+-- | @since 0.0.0
 instance
   (Catch.MonadMask m, MonadIO m)
   => Class.RunQuery (Query.QueryT m) (ConnectionPoolT m)

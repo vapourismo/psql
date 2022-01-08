@@ -56,6 +56,8 @@ import           PostgreSQL.Types (Error (..), Errors)
 ---
 
 -- | Like 'execute' but does not concern itself with the result handle.
+--
+-- @since 0.0.0
 execute_
   :: (Class.Executable statement, Class.Query query)
   => statement param
@@ -69,6 +71,8 @@ execute_ statement param =
 {-# INLINE execute_ #-}
 
 -- | Perform a parameterized query.
+--
+-- @since 0.0.0
 query
   :: (Class.Executable statement, Class.Query query, Row.AutoRow row)
   => statement param
@@ -82,6 +86,8 @@ query statement input =
 {-# INLINE query #-}
 
 -- | Perform a parameterized query. This also lets you specify the result processor explicitly.
+--
+-- @since 0.0.0
 queryWith
   :: (Class.Executable statement, Class.Query query)
   => statement param
@@ -100,37 +106,43 @@ queryWith statement input resultProcessor = do
 ---
 
 -- | Interpreter for 'Class.Query'
+--
+-- @since 0.0.0
 newtype QueryT m a = QueryT
   { unQueryT :: Reader.ReaderT PQ.Connection (Except.ExceptT Errors m) a }
   deriving newtype
-    ( Functor
-    , Apply
-    , Applicative
-    , Monad
-    , MonadIO
-    , MonadState s
-    , MonadWriter s
-    , Except.MonadError Errors
-    , MonadThrow
-    , MonadCatch
-    , MonadMask
+    ( Functor -- ^ @since 0.0.0
+    , Apply -- ^ @since 0.0.0
+    , Applicative -- ^ @since 0.0.0
+    , Monad -- ^ @since 0.0.0
+    , MonadIO -- ^ @since 0.0.0
+    , MonadState s -- ^ @since 0.0.0
+    , MonadWriter s -- ^ @since 0.0.0
+    , Except.MonadError Errors -- ^ @since 0.0.0
+    , MonadThrow -- ^ @since 0.0.0
+    , MonadCatch -- ^ @since 0.0.0
+    , MonadMask -- ^ @since 0.0.0
     )
 
+-- | @since 0.0.0
 instance Monad m => Alt (QueryT m) where
   QueryT lhs <!> QueryT rhs = QueryT $ lhs <!> rhs
 
   {-# INLINE (<!>) #-}
 
+-- | @since 0.0.0
 instance Monad m => Bind (QueryT m) where
   QueryT x >>- f = QueryT (x >>- unQueryT . f)
 
   {-# INLINE (>>-) #-}
 
+-- | @since 0.0.0
 instance MonadTrans QueryT where
   lift = QueryT . lift . lift
 
   {-# INLINE lift #-}
 
+-- | @since 0.0.0
 instance Reader.MonadReader r m => Reader.MonadReader r (QueryT m) where
   ask = QueryT $ lift $ lift Reader.ask
 
@@ -214,6 +226,8 @@ instance (MonadIO m, MonadMask m) => Class.Query (QueryT m) where
   {-# INLINE processResult #-}
 
 -- | Run an interaction with a PostgreSQL database.
+--
+-- @since 0.0.0
 runQueryT
   :: PQ.Connection
   -> QueryT m a
@@ -224,6 +238,8 @@ runQueryT conn (QueryT action) =
 {-# INLINE runQueryT #-}
 
 -- | Like 'runQueryT' but throw on error instead.
+--
+-- @since 0.0.0
 runQueryTThrow
   :: MonadThrow m
   => PQ.Connection

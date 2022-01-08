@@ -33,14 +33,23 @@ import           GHC.Generics (Generic)
 import           PostgreSQL.Types (PackedParam (..), PackedParamPrepared (..), RegType (..),
                                    Value (..))
 
+-- | Parameter type
+--
+-- @since 0.0.0
 data Type
   = InferredType
   -- ^ Type is inferred on the server side
+  --
+  -- @since 0.0.0
   | StaticType PQ.Oid
   -- ^ Explicit static type
+  --
+  -- @since 0.0.0
   deriving (Show, Eq, Ord)
 
 -- | Get the OID for the type.
+--
+-- @since 0.0.0
 typeOid :: Type -> PQ.Oid
 typeOid = \case
   InferredType -> PQ.invalidOid
@@ -49,6 +58,8 @@ typeOid = \case
 {-# INLINE typeOid #-}
 
 -- | Static parameter information
+--
+-- @since 0.0.0
 data Info a = Info
   { info_type :: Type
   , info_typeName :: Maybe Text
@@ -59,6 +70,8 @@ data Info a = Info
   deriving stock (Functor, Foldable, Traversable, Generic)
 
 -- | Pack a parameter into a @postgresql-libpq@ format.
+--
+-- @since 0.0.0
 packParam :: Info Value -> PackedParam
 packParam paramInfo = PackedParam $
   case info_pack paramInfo of
@@ -70,6 +83,8 @@ packParam paramInfo = PackedParam $
 {-# INLINE packParam #-}
 
 -- | Convert 'PackedParam'.
+--
+-- @since 0.0.0
 toPrepared :: PackedParam -> PackedParamPrepared
 toPrepared (PackedParam param) = PackedParamPrepared $ do
   (_, datas, format) <- param
@@ -78,6 +93,8 @@ toPrepared (PackedParam param) = PackedParamPrepared $ do
 {-# INLINE toPrepared #-}
 
 -- | Pack a parameter for a prepared query into a @postgresql-libpq@ format.
+--
+-- @since 0.0.0
 packParamPrepared :: Info Value -> PackedParamPrepared
 packParamPrepared paramInfo = PackedParamPrepared $
   case info_pack paramInfo of
@@ -87,10 +104,15 @@ packParamPrepared paramInfo = PackedParamPrepared $
 {-# INLINE packParamPrepared #-}
 
 -- | @a@ can be used as a parameter
+--
+-- @since 0.0.0
 class Param a where
   -- | Parameter information
+  --
+  -- @since 0.0.0
   paramInfo :: Info (a -> Value)
 
+-- | @since 0.0.0
 instance Param Integer where
   paramInfo = Info
     { info_type = InferredType
@@ -99,6 +121,7 @@ instance Param Integer where
     , info_pack = Value . ByteString.Char8.pack . show
     }
 
+-- | @since 0.0.0
 instance Param Double where
   paramInfo = Info
     { info_type = InferredType
@@ -107,6 +130,7 @@ instance Param Double where
     , info_pack = Value . ByteString.Char8.pack . show
     }
 
+-- | @since 0.0.0
 instance Param Text where
   paramInfo = Info
     { info_type = InferredType
@@ -115,6 +139,7 @@ instance Param Text where
     , info_pack = Value . encodeUtf8
     }
 
+-- | @since 0.0.0
 instance Param PQ.Oid where
   paramInfo = Info
     { info_type = InferredType
@@ -123,6 +148,7 @@ instance Param PQ.Oid where
     , info_pack = \(PQ.Oid inner) -> Value $ ByteString.Char8.pack $ show inner
     }
 
+-- | @since 0.0.0
 instance Param RegType where
   paramInfo = Info
     { info_type = InferredType
@@ -132,10 +158,13 @@ instance Param RegType where
     }
 
 -- | Raw textual parameter
+--
+-- @since 0.0.0
 newtype RawText = RawText
   { unRawText :: ByteString }
   deriving (Show, Eq, Ord)
 
+-- | @since 0.0.0
 instance Param RawText where
   paramInfo = Info
     { info_type = InferredType
@@ -144,6 +173,7 @@ instance Param RawText where
     , info_pack = Value . unRawText
     }
 
+-- | @since 0.0.0
 instance Param Value where
   paramInfo = Info
     { info_type = InferredType

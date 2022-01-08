@@ -70,16 +70,24 @@ instance Contravariant Segment where
     Code text -> Code text
 
 -- | SQL statement template
+--
+-- @since 0.0.0
 newtype Template a = Template
   { _unStatement :: Sequence.Seq (Segment a) }
-  deriving newtype (Semigroup, Monoid)
+  deriving newtype
+    ( Semigroup -- ^ @since 0.0.0
+    , Monoid -- ^ @since 0.0.0
+    )
 
+-- | @since 0.0.0
 instance Contravariant Template where
   contramap f (Template seqs) = Template (fmap (contramap f) seqs)
 
 -- | @OverloadedStrings@ helper for 'code'
 --
 -- > "my code" === code "my code"
+--
+-- @since 0.0.0
 instance IsString (Template a) where
   fromString = code . Text.pack
 
@@ -94,14 +102,20 @@ instance IsString (Template a) where
 -- > myStatementTpl :: Template MyFoo
 -- > myStatementTpl = "SELECT * FROM my_foo WHERE bar = " <> #bar <> " AND baz = " <> #baz
 --
+--
+-- @since 0.0.0
 instance (HasField n r a, Param.Param a) => IsLabel n (Template r) where
   fromLabel = param (getField @n @r @a)
 
 -- | Create a code-only statement.
+--
+-- @since 0.0.0
 code :: Text -> Template a
 code = Template . Sequence.singleton . Code
 
 -- | Create a code segment that mentions the given identifier.
+--
+-- @since 0.0.0
 identifier :: Text -> Template a
 identifier name =
   code $ Text.concat ["\"", safeName, "\""]
@@ -110,6 +124,8 @@ identifier name =
 
 -- | Encase the given string literal in single quotes. Single quotes in the literal are
 -- automatically escaped.
+--
+-- @since 0.0.0
 string :: Text -> Template a
 string str = "'" <> code (Text.replace "'" "''" str) <> "'"
 
@@ -121,19 +137,27 @@ annotateParamType typeAnnotation stmt =
     Nothing -> stmt
 
 -- | Reference a parameter.
+--
+-- @since 0.0.0
 param :: forall b a. Param.Param b => (a -> b) -> Template a
 param f = paramWith $ fmap (. f) $ Param.paramInfo @b
 
 -- | Reference a parameter.
+--
+-- @since 0.0.0
 paramWith :: Param.Info (a -> Param.Value) -> Template a
 paramWith info =
   annotateParamType (Param.info_typeName info) $ Template $ Sequence.singleton $ Parameter info
 
 -- | Constant part of a query.
+--
+-- @since 0.0.0
 constant :: forall b a. Param.Param b => b -> Template a
 constant x = paramWith $ fmap (. const x) $ Param.paramInfo @b
 
 -- | Rendered SQL statement
+--
+-- @since 0.0.0
 data Statement a = Statement
   { statement_code :: ByteString
   , statement_mkParams :: a -> [Param.PackedParam]
@@ -141,6 +165,7 @@ data Statement a = Statement
   , statement_name :: ByteString
   }
 
+-- | @since 0.0.0
 instance Contravariant Statement where
   contramap f statement = Statement
     { statement_code = statement_code statement
@@ -150,6 +175,8 @@ instance Contravariant Statement where
     }
 
 -- | Render the SQL statement.
+--
+-- @since 0.0.0
 renderTemplate :: Template a -> Statement a
 renderTemplate (Template segments :: Template a) = Statement
   { statement_code = codeBytes
@@ -198,11 +225,14 @@ renderTemplate (Template segments :: Template a) = Statement
 ---
 
 -- | Prepared statement
+--
+-- @since 0.0.0
 data PreparedStatement a = PreparedStatement
   { preparedStatement_name :: ByteString
   , preparedStatement_mkParams :: a -> [Param.PackedParamPrepared]
   }
 
+-- | @since 0.0.0
 instance Contravariant PreparedStatement where
   contramap f statement = PreparedStatement
     { preparedStatement_name = preparedStatement_name statement
@@ -274,6 +304,7 @@ tplQuoteExp contents = do
 --
 -- See 'stmt' for features.
 --
+-- @since 0.0.0
 tpl :: Quote.QuasiQuoter
 tpl = Quote.QuasiQuoter
   { Quote.quoteExp = tplQuoteExp
@@ -311,6 +342,7 @@ stmtQuoteExp contents = do
 --
 -- @[stmt| $(x) |]@ is equivalent to @x@.
 --
+-- @since 0.0.0
 stmt :: Quote.QuasiQuoter
 stmt = Quote.QuasiQuoter
   { Quote.quoteExp = stmtQuoteExp

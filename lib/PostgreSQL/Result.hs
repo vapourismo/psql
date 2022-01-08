@@ -134,6 +134,8 @@ affectedRows = Result id AffectedRows
 ---
 
 -- | Check the result, if any, and the connection for errors.
+--
+-- @since 0.0.0
 checkForError
   :: (MonadIO m, Except.MonadError Types.ResultErrors m)
   => PQ.Connection
