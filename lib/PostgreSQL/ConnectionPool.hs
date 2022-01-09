@@ -73,7 +73,7 @@ defaultConnectionPoolSettings :: Pool.Settings
 defaultConnectionPoolSettings = Pool.defaultSettings
   { Pool.settings_idleTimeout = Just 60 -- seconds
   , Pool.settings_returnPolicy = Pool.ReturnToFront
-  , Pool.settings_maxLiveLimit = Just 5
+  , Pool.settings_maxLiveLimit = Nothing
   }
 
 -- | Run connection pool transformer.
