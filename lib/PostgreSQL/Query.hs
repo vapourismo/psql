@@ -188,7 +188,7 @@ deallocatePreparedStatement statement =
     quotedName = Statement.identifier $ decodeUtf8 $ Statement.preparedStatement_name statement
 
 instance (MonadIO m, MonadMask m) => Class.Query (QueryT m) where
-  type Result (QueryT m) = PQ.Result
+  type NativeResult (QueryT m) = PQ.Result
 
   executeStatement statement input = QueryT $ Reader.ReaderT $ \conn -> do
     mbResult <- liftIO $ do

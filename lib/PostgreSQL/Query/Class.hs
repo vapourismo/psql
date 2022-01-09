@@ -16,10 +16,10 @@ import qualified PostgreSQL.Statement as Statement
 --
 -- @since 0.0.0
 class Monad query => Query query where
-  -- | Query result
+  -- | Native query result
   --
   -- @since 0.0.0
-  type Result query :: Type
+  type NativeResult query :: Type
 
   -- | Execute a statement.
   --
@@ -29,7 +29,7 @@ class Monad query => Query query where
     -- ^ Statement
     -> a
     -- ^ Statement input
-    -> query (Result query)
+    -> query (NativeResult query)
 
   -- | Execute a previously prepared statement.
   --
@@ -39,7 +39,7 @@ class Monad query => Query query where
     -- ^ Prepared statement
     -> a
     -- ^ Statement input
-    -> query (Result query)
+    -> query (NativeResult query)
 
   -- | Prepare a statement. The prepared statement is only valid within the provided continuation.
   --
@@ -55,7 +55,7 @@ class Monad query => Query query where
   --
   -- @since 0.0.0
   processResult
-    :: Result query
+    :: NativeResult query
     -- ^ Result
     -> Result.Result a
     -- ^ Result processor
@@ -74,7 +74,7 @@ class Executable statement where
     -- ^ Statement
     -> param
     -- ^ Statement input
-    -> query (Result query)
+    -> query (NativeResult query)
 
 -- | @since 0.0.0
 instance Executable Statement.Statement where
