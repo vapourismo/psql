@@ -237,7 +237,7 @@ runQueryT conn (QueryT action) =
 
 {-# INLINE runQueryT #-}
 
--- | Like 'runQueryT' but throw on error instead.
+-- | Like 'runQueryT' but throw the first 'Error' instead.
 --
 -- @since 0.0.0
 runQueryTThrow
