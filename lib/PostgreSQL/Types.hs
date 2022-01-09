@@ -4,6 +4,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RankNTypes #-}
 
+-- | The various common types commonly used throughout this package are exported here.
 module PostgreSQL.Types
   ( Value (..)
   , RegType (..)

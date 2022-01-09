@@ -15,6 +15,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
+-- | Tools to deal with templates and statements are defined here.
 module PostgreSQL.Statement
   ( Template
   , code
@@ -69,6 +70,8 @@ instance Contravariant Segment where
     Parameter g -> Parameter $ fmap (. f) g
     Code text -> Code text
 
+  {-# INLINE contramap #-}
+
 -- | SQL statement template
 --
 -- @since 0.0.0
@@ -83,6 +86,8 @@ newtype Template a = Template
 instance Contravariant Template where
   contramap f (Template seqs) = Template (fmap (contramap f) seqs)
 
+  {-# INLINE contramap #-}
+
 -- | @OverloadedStrings@ helper for 'code'
 --
 -- > "my code" === code "my code"
@@ -90,6 +95,8 @@ instance Contravariant Template where
 -- @since 0.0.0
 instance IsString (Template a) where
   fromString = code . Text.pack
+
+  {-# INLINE fromString #-}
 
 -- | @OverloadedLabels@ helper for 'param'
 --
@@ -107,13 +114,17 @@ instance IsString (Template a) where
 instance (HasField n r a, Param.Param a) => IsLabel n (Template r) where
   fromLabel = param (getField @n @r @a)
 
+  {-# INLINE fromLabel #-}
+
 -- | Create a code-only statement.
 --
 -- @since 0.0.0
 code :: Text -> Template a
 code = Template . Sequence.singleton . Code
 
--- | Create a code segment that mentions the given identifier.
+{-# INLINE code #-}
+
+-- | Create a code segment that mentions the given identifier (e.g. table or column name).
 --
 -- @since 0.0.0
 identifier :: Text -> Template a
@@ -122,12 +133,16 @@ identifier name =
   where
     safeName = Text.intercalate "\"\"" $ Text.split (== '"') name
 
+{-# INLINE identifier #-}
+
 -- | Encase the given string literal in single quotes. Single quotes in the literal are
 -- automatically escaped.
 --
 -- @since 0.0.0
 string :: Text -> Template a
 string str = "'" <> code (Text.replace "'" "''" str) <> "'"
+
+{-# INLINE string #-}
 
 -- | Annotate the given statement with a type signature.
 annotateParamType :: Maybe Text -> Template a -> Template a
@@ -136,11 +151,15 @@ annotateParamType typeAnnotation stmt =
     Just paramType -> "(" <> stmt <> code (" :: " <> paramType <> ")")
     Nothing -> stmt
 
+{-# INLINE annotateParamType #-}
+
 -- | Reference a parameter.
 --
 -- @since 0.0.0
 param :: forall b a. Param.Param b => (a -> b) -> Template a
 param f = paramWith $ fmap (. f) $ Param.paramInfo @b
+
+{-# INLINE param #-}
 
 -- | Reference a parameter.
 --
@@ -149,11 +168,15 @@ paramWith :: Param.Info (a -> Param.Value) -> Template a
 paramWith info =
   annotateParamType (Param.info_typeName info) $ Template $ Sequence.singleton $ Parameter info
 
+{-# INLINE paramWith #-}
+
 -- | Constant part of a query.
 --
 -- @since 0.0.0
 constant :: forall b a. Param.Param b => b -> Template a
 constant x = paramWith $ fmap (. const x) $ Param.paramInfo @b
+
+{-# INLINE constant #-}
 
 -- | Rendered SQL statement
 --
@@ -173,6 +196,8 @@ instance Contravariant Statement where
     , statement_types = statement_types statement
     , statement_name = statement_name statement
     }
+
+  {-# INLINE contramap #-}
 
 -- | Render the SQL statement.
 --
@@ -221,6 +246,8 @@ renderTemplate (Template segments :: Template a) = Statement
     hash =
       Hash.hashFinalize $ Hash.hashUpdates Hash.hashInit $
         codeBytes : map (ByteString.Char8.pack . show) types
+
+{-# INLINE renderTemplate #-}
 
 ---
 
@@ -298,11 +325,9 @@ tplQuoteExp contents = do
       "(PostgreSQL.Statement.tpl quasi-quotation)"
       contents
 
--- | Template quasi-quoter
+-- | Produces a 'Template' expression.
 --
--- Produces a 'Template'.
---
--- See 'stmt' for features.
+-- Supports the same features as 'stmt'.
 --
 -- @since 0.0.0
 tpl :: Quote.QuasiQuoter
@@ -322,9 +347,7 @@ stmtQuoteExp contents = do
       contents
   [e| renderTemplate $stmt |]
 
--- | Statement quasi-quoter
---
--- Produces a 'Statement'.
+-- | Produces a 'Statement' expression.
 --
 -- > [stmt| SELECT $param * 2 |]
 --
@@ -341,6 +364,13 @@ stmtQuoteExp contents = do
 -- Use @$(substr)@ to embed another 'Template' where @substr :: 'Template' a@.
 --
 -- @[stmt| $(x) |]@ is equivalent to @x@.
+--
+-- == Examples
+--
+-- > data MyParams = MyParams { foo :: Int, bar :: Text }
+-- >
+-- > myStatement :: Statement MyParams
+-- > myStatement = [stmt| SELECT baz FROM my_table WHERE foo > ${foo} AND bar = ${bar} |]
 --
 -- @since 0.0.0
 stmt :: Quote.QuasiQuoter

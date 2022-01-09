@@ -7,6 +7,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
+-- | This module defines an interpreter for 'Class.RunQuery'.
 module PostgreSQL.ConnectionPool
   ( ConnectionPoolT (..)
   , runConnectionPoolT
@@ -32,7 +33,7 @@ import qualified Simpoole as Pool
 import qualified Simpoole.Monad as Pool.Monad
 import qualified Simpoole.Monad.Internal as Pool.Monad
 
--- | Interpreter for 'RunPostgreSQL' which dispatches queries to a pool of database connections
+-- | Interpreter for 'Class.RunQuery' which dispatches queries to a pool of database connections
 --
 -- @since 0.0.0
 newtype ConnectionPoolT m a = ConnectionPoolT

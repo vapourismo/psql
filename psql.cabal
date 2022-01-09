@@ -2,8 +2,10 @@ cabal-version:      2.2
 name:               psql
 version:            0.0.0
 category:           Database
-synopsis:           Tbw
-description:        To be written.
+synopsis:           PostgreSQL client
+description:        This package defines a PostgreSQL client.
+                    .
+                    Check out the "PostgreSQL" module for a documentation overview.
 author:             Ole Krüger <haskell-psql@vprsm.de>
 maintainer:         Ole Krüger <haskell-psql@vprsm.de>
 homepage:           https://github.com/vapourismo/psql

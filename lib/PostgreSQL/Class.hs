@@ -2,6 +2,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
+-- | General class declarations
 module PostgreSQL.Class
   ( RunQuery (..)
   , runQueryThrow

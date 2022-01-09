@@ -4,6 +4,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
+-- | Here are things dealing with query parameters.
 module PostgreSQL.Param
   ( -- * Basics
     Type (..)
@@ -17,6 +18,7 @@ module PostgreSQL.Param
   , Types.PackedParam (..)
   , packParam
   , toPrepared
+
   , Types.PackedParamPrepared (..)
   , packParamPrepared
 

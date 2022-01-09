@@ -2,6 +2,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
 
+-- | Class declarations for query execution
 module PostgreSQL.Query.Class
   ( Query (..)
   , Executable (..)
@@ -48,7 +49,7 @@ class Monad query => Query query where
     :: Statement.Statement a
     -- ^ Statement to prepare
     -> (Statement.PreparedStatement a -> query r)
-    -- ^ Scope within which the statement may be used
+    -- ^ Scope within the prepared statement may be used
     -> query r
 
   -- | Process the result object.

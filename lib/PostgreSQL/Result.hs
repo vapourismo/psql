@@ -3,6 +3,7 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE RankNTypes #-}
 
+-- | This module is dedicated to dealing with query results.
 module PostgreSQL.Result
   ( Result
   , runResultPq

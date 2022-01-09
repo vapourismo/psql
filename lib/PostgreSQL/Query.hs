@@ -10,6 +10,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
+-- | In here one will find the things to execute database queries.
 module PostgreSQL.Query
   ( -- * Query execution
     Class.execute
@@ -52,7 +53,7 @@ import           PostgreSQL.Types (Connection, Error (..), Errors, Format (Text)
 
 ---
 
--- | Like 'execute' but does not concern itself with the result handle.
+-- | Like 'Class.execute' but does not concern itself with the result handle.
 --
 -- @since 0.0.0
 execute_
