@@ -138,7 +138,7 @@ affectedRows = Result id AffectedRows
 -- @since 0.0.0
 checkForError
   :: (MonadIO m, Except.MonadError Types.ResultErrors m)
-  => PQ.Connection
+  => Types.Connection
   -> Maybe PQ.Result
   -> m PQ.Result
 checkForError conn mbResult = do

@@ -37,18 +37,17 @@ import           Data.ByteString (ByteString)
 import           Data.Coerce (coerce)
 import           Data.Functor.Alt (Alt (..))
 import           Data.Text (Text)
-import qualified Database.PostgreSQL.LibPQ as PQ
 import           Numeric.Natural (Natural)
 import qualified PostgreSQL.Result.Cell as Cell
-import           PostgreSQL.Types (ParserError (..), ParserErrors, Value)
+import           PostgreSQL.Types (Format (..), Oid (..), ParserError (..), ParserErrors, Value)
 
 -- | Result column parser
 --
 -- @since 0.0.0
 newtype Column a = Column
   { parseColumn
-      :: PQ.Oid -- OID of the column type
-      -> PQ.Format -- Format in which the cells of this column will appear
+      :: Oid -- OID of the column type
+      -> Format -- Format in which the cells of this column will appear
       -> Either ParserErrors (Cell.Cell a)
   }
   deriving stock Functor -- ^ @since 0.0.0
@@ -86,8 +85,8 @@ unchecked parser = Column $ \_ _ -> Right parser
 onlyTextual :: Column a -> Column a
 onlyTextual (Column run) = Column $ \oid format ->
   case format of
-    PQ.Binary -> Left [UnsupportedFormat format]
-    PQ.Text -> run oid format
+    Binary -> Left [UnsupportedFormat format]
+    Text -> run oid format
 
 {-# INLINE onlyTextual #-}
 
@@ -97,8 +96,8 @@ onlyTextual (Column run) = Column $ \oid format ->
 onlyBinary :: Column a -> Column a
 onlyBinary (Column run) = Column $ \oid format ->
   case format of
-    PQ.Text -> Left [UnsupportedFormat format]
-    PQ.Binary -> run oid format
+    Text -> Left [UnsupportedFormat format]
+    Binary -> run oid format
 
 {-# INLINE onlyBinary #-}
 
@@ -196,8 +195,8 @@ instance AutoColumn Double where
   {-# INLINE autoColumn #-}
 
 -- | @since 0.0.0
-instance AutoColumn PQ.Oid where
-  autoColumn = PQ.Oid <$> readable
+instance AutoColumn Oid where
+  autoColumn = Oid <$> readable
 
   {-# INLINE autoColumn #-}
 
@@ -228,8 +227,8 @@ instance Read a => AutoColumn (Readable a) where
 --
 -- @since 0.0.0
 data RawValue = RawValue
-  { rawValue_type :: PQ.Oid
-  , rawValue_format :: PQ.Format
+  { rawValue_type :: Oid
+  , rawValue_format :: Format
   , rawValue_value :: Value
   }
   deriving stock (Show, Eq, Ord)

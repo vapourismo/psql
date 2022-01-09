@@ -50,13 +50,13 @@ import qualified Data.Text as Text
 import           Data.Text.Encoding (encodeUtf8)
 import           Data.Traversable (for)
 import           Data.Void (Void)
-import qualified Database.PostgreSQL.LibPQ as PQ
 import           GHC.OverloadedLabels (IsLabel (..))
 import           GHC.Records (HasField (..))
 import qualified Language.Haskell.TH as TH
 import qualified Language.Haskell.TH.Quote as Quote
 import           Numeric.Natural (Natural)
 import qualified PostgreSQL.Param as Param
+import           PostgreSQL.Types (Oid)
 import qualified Text.Megaparsec as Megaparsec
 import qualified Text.Megaparsec.Char as Megaparsec.Char
 
@@ -161,7 +161,7 @@ constant x = paramWith $ fmap (. const x) $ Param.paramInfo @b
 data Statement a = Statement
   { statement_code :: ByteString
   , statement_mkParams :: a -> [Param.PackedParam]
-  , statement_types :: [PQ.Oid]
+  , statement_types :: [Oid]
   , statement_name :: ByteString
   }
 
@@ -207,7 +207,7 @@ renderTemplate (Template segments :: Template a) = Statement
         []
         segments
 
-    types :: [PQ.Oid]
+    types :: [Oid]
     types =
       foldr
         (\case

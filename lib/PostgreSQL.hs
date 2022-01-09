@@ -71,8 +71,8 @@ module PostgreSQL
   , Types.ParserErrors
 
     -- * Common types
-  , PQ.Format (..)
-  , PQ.Oid
+  , Types.Format (..)
+  , Types.Oid
   , Types.ColumnNum
   , Types.RowNum
   , Types.Value (..)
@@ -80,7 +80,6 @@ module PostgreSQL
   )
 where
 
-import qualified Database.PostgreSQL.LibPQ as PQ
 import qualified PostgreSQL.Class as Class
 import qualified PostgreSQL.ConnectionPool as ConnectionPool
 import qualified PostgreSQL.Query as Query

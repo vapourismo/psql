@@ -27,6 +27,7 @@ import qualified Database.PostgreSQL.LibPQ as PQ
 import           Numeric.Natural (Natural)
 import qualified PostgreSQL.Class as Class
 import qualified PostgreSQL.Query as Query
+import           PostgreSQL.Types (Connection)
 import qualified Simpoole as Pool
 import qualified Simpoole.Monad as Pool.Monad
 import qualified Simpoole.Monad.Internal as Pool.Monad
@@ -35,7 +36,7 @@ import qualified Simpoole.Monad.Internal as Pool.Monad
 --
 -- @since 0.0.0
 newtype ConnectionPoolT m a = ConnectionPoolT
-  { unConnectionPoolT :: Pool.Monad.PoolT PQ.Connection m a }
+  { unConnectionPoolT :: Pool.Monad.PoolT Connection m a }
   deriving newtype
     ( Functor -- ^ @since 0.0.0
     , Applicative -- ^ @since 0.0.0
@@ -80,7 +81,7 @@ defaultConnectionPoolSettings = Pool.defaultSettings
 -- @since 0.0.0
 runConnectionPoolT
   :: (MonadIO m, MonadConc m)
-  => m PQ.Connection
+  => m Connection
   -- ^ Action to establish a new connection
   -> Pool.Settings
   -- ^ Connection pool settings

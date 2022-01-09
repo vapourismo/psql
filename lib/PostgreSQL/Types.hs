@@ -9,7 +9,6 @@ module PostgreSQL.Types
   , RegType (..)
   , PackedParam (..)
   , PackedParamPrepared (..)
-  , PQ.Format (..)
   , ParserError (..)
   , ParserErrors
   , ProcessorError (..)
@@ -20,6 +19,11 @@ module PostgreSQL.Types
   , Errors
   , ColumnNum (..)
   , RowNum (..)
+
+    -- * Re-exports
+  , PQ.Format (..)
+  , PQ.Oid (..)
+  , PQ.Connection
   )
 where
 

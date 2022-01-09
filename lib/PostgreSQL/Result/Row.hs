@@ -59,14 +59,13 @@ import           GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
 import           GHC.TypeNats (KnownNat, Nat, natVal)
 import qualified PostgreSQL.Result.Cell as Cell
 import qualified PostgreSQL.Result.Column as Column
-import           PostgreSQL.Types (ColumnNum (..), ProcessorError (..), ProcessorErrors,
-                                   RowNum (..), Value (..))
+import qualified PostgreSQL.Types as Types
 
 -- | Position of a column
 --
 -- @since 0.0.0
 data ColumnPosition
-  = FixedColumn ColumnNum
+  = FixedColumn Types.ColumnNum
   -- ^ Column is at a fixed index.
   --
   -- @since 0.0.0
@@ -99,7 +98,7 @@ newtype Row a = Row
       :: forall m row
       .  (Monad m, Applicative row)
       => (forall x. ColumnRequest x -> m (row x))
-      -> State.StateT ColumnNum m (row a)
+      -> State.StateT Types.ColumnNum m (row a)
   }
 
 -- | @since 0.0.0
@@ -139,38 +138,45 @@ runRow (Row run) liftRequest =
 --
 -- @since 0.0.0
 runRowPq
-  :: (Except.MonadError ProcessorErrors m, MonadIO m)
+  :: (Except.MonadError Types.ProcessorErrors m, MonadIO m)
   => PQ.Result
   -> Row a
-  -> m (RowNum -> m a)
+  -> m (Types.RowNum -> m a)
 runRowPq result row = Reader.runReaderT <$> do
   numCols <- liftIO (PQ.nfields result)
 
   runRow row $ \req -> do
     col <-
       case columnRequest_position req of
-        FixedColumn origCol@(ColumnNum col) -> do
+        FixedColumn origCol@(Types.ColumnNum col) -> do
           when (col >= numCols) $
-            Except.throwError [NotEnoughColumns origCol (ColumnNum numCols)]
+            Except.throwError [Types.NotEnoughColumns origCol (Types.ColumnNum numCols)]
 
           pure col
 
         NamedColumn name -> do
           mbCol <- liftIO (PQ.fnumber result name)
-          maybe (Except.throwError [MissingNamedColumn name]) pure mbCol
+          maybe (Except.throwError [Types.MissingNamedColumn name]) pure mbCol
 
     oid <- liftIO (PQ.ftype result col)
     format <- liftIO (PQ.fformat result col)
 
     cell <-
-      Except.liftEither $ first (fmap (ColumnParserError (ColumnNum col) oid format)) $
+      Except.liftEither $ first (fmap (Types.ColumnParserError (Types.ColumnNum col) oid format)) $
         Column.parseColumn (columnRequest_parser req) oid format
 
-    pure $ Reader.ReaderT $ \(RowNum row) -> do
+    pure $ Reader.ReaderT $ \(Types.RowNum row) -> do
       valueBare <- liftIO (PQ.getvalue' result row col)
-      let value = maybe Null Value valueBare
+      let value = maybe Types.Null Types.Value valueBare
       Except.liftEither
-        $ first (fmap (CellParserError (ColumnNum col) oid format (RowNum row) value))
+        $ first
+            (fmap
+              (Types.CellParserError
+                (Types.ColumnNum col)
+                oid
+                format
+                (Types.RowNum row)
+                value))
         $ Cell.parseCell cell value
 
 {-# INLINE runRowPq #-}
@@ -209,7 +215,7 @@ columnWith column = Row $ \liftRequest -> do
 -- | Fixed-position column using the default 'Column.Column' for @a@
 --
 -- @since 0.0.0
-fixedColumn :: Column.AutoColumn a => ColumnNum -> Row a
+fixedColumn :: Column.AutoColumn a => Types.ColumnNum -> Row a
 fixedColumn num = fixedColumnWith num Column.autoColumn
 
 {-# INLINE fixedColumn #-}
@@ -217,7 +223,7 @@ fixedColumn num = fixedColumnWith num Column.autoColumn
 -- | Same as 'fixedColumn' but lets you specify the 'Column.Column'.
 --
 -- @since 0.0.0
-fixedColumnWith :: ColumnNum -> Column.Column a -> Row a
+fixedColumnWith :: Types.ColumnNum -> Column.Column a -> Row a
 fixedColumnWith number column = Row $ \liftRequest -> State.lift $
   liftRequest ColumnReqest
     { columnRequest_position = FixedColumn number

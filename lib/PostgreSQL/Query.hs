@@ -48,7 +48,7 @@ import qualified PostgreSQL.Query.Class as Class
 import qualified PostgreSQL.Result as Result
 import qualified PostgreSQL.Result.Row as Row
 import qualified PostgreSQL.Statement as Statement
-import           PostgreSQL.Types (Error (..), Errors)
+import           PostgreSQL.Types (Connection, Error (..), Errors, Format (Text))
 
 ---
 
@@ -106,7 +106,7 @@ queryWith statement input resultProcessor = do
 --
 -- @since 0.0.0
 newtype QueryT m a = QueryT
-  { unQueryT :: Reader.ReaderT PQ.Connection (Except.ExceptT Errors m) a }
+  { unQueryT :: Reader.ReaderT Connection (Except.ExceptT Errors m) a }
   deriving newtype
     ( Functor -- ^ @since 0.0.0
     , Apply -- ^ @since 0.0.0
@@ -192,7 +192,7 @@ instance (MonadIO m, MonadMask m) => Class.Query (QueryT m) where
       let code = Statement.statement_code statement
       case Statement.statement_mkParams statement input of
         []     -> PQ.exec conn code
-        params -> PQ.execParams conn code (coerce params) PQ.Text
+        params -> PQ.execParams conn code (coerce params) Text
 
     Except.withExceptT (fmap ErrorDuringValidation) $ Result.checkForError conn mbResult
 
@@ -209,7 +209,7 @@ instance (MonadIO m, MonadMask m) => Class.Query (QueryT m) where
         conn
         (Statement.preparedStatement_name statement)
         (coerce (Statement.preparedStatement_mkParams statement input))
-        PQ.Text
+        Text
 
     Except.withExceptT (fmap ErrorDuringValidation) $ Result.checkForError conn mbResult
 
@@ -226,7 +226,7 @@ instance (MonadIO m, MonadMask m) => Class.Query (QueryT m) where
 --
 -- @since 0.0.0
 runQueryT
-  :: PQ.Connection
+  :: Connection
   -> QueryT m a
   -> m (Either Errors a)
 runQueryT conn (QueryT action) =
@@ -239,7 +239,7 @@ runQueryT conn (QueryT action) =
 -- @since 0.0.0
 runQueryTThrow
   :: MonadThrow m
-  => PQ.Connection
+  => Connection
   -> QueryT m a
   -> m a
 runQueryTThrow conn query = do
