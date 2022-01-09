@@ -17,13 +17,10 @@ module PostgreSQL.Query
   , query
   , queryWith
 
-    -- * Statement preparation
-  , Class.withPreparedStatement
+    -- * Class
+  , Class.Query (..)
 
-    -- * Classes
-  , Class.Query
-
-    -- * Interpreters
+    -- * Interpreter
   , QueryT
   , runQueryT
   , runQueryTThrow
