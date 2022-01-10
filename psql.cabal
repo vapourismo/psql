@@ -33,8 +33,7 @@ library
                     megaparsec,
                     mtl,
                     postgresql-libpq,
-                    -- FIXME: semigroupoids version needed is not on Hackage yet
-                    semigroupoids,
+                    semigroupoids >= 5.3.7,
                     simpoole >= 0.4.0,
                     template-haskell,
                     text,
